@@ -51,32 +51,16 @@ class AppUpdateChecker {
         // Removes prefixes like "r" or "v"
         val newVersion = versionTag.replace("[^\\d.]".toRegex(), "")
 
-        return if (BuildConfig.PREVIEW) {
-            // Preview builds: based on releases in "tachiyomiorg/tachiyomi-preview" repo
-            // tagged as something like "r1234"
-            newVersion.toInt() > BuildConfig.COMMIT_COUNT.toInt()
-        } else {
-            // Release builds: based on releases in "tachiyomiorg/tachiyomi" repo
-            // tagged as something like "v0.1.2"
-            newVersion != BuildConfig.VERSION_NAME
-        }
+        return newVersion != BuildConfig.VERSION_NAME
     }
 }
 
 val GITHUB_REPO: String by lazy {
-    if (BuildConfig.PREVIEW) {
-        "tachiyomiorg/tachiyomi-preview"
-    } else {
-        "tachiyomiorg/tachiyomi"
-    }
+    "exentio/tachiyomi"
 }
 
 val RELEASE_TAG: String by lazy {
-    if (BuildConfig.PREVIEW) {
-        "r${BuildConfig.COMMIT_COUNT}"
-    } else {
-        "v${BuildConfig.VERSION_NAME}"
-    }
+    "v${BuildConfig.VERSION_NAME}"
 }
 
 val RELEASE_URL = "https://github.com/$GITHUB_REPO/releases/tag/$RELEASE_TAG"
