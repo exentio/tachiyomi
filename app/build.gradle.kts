@@ -45,6 +45,7 @@ android {
         }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        versionNameSuffix = "freqpatch"
     }
 
     splits {
