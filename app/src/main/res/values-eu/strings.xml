@@ -592,6 +592,8 @@
     <string name="pref_category_timestamps">Denbora-zigiluak</string>
     <string name="pref_relative_format">Denbora-zigilu erlatiboak</string>
     <string name="update_never">Itzali</string>
+    <string name="update_3hour">3 orduro</string>
+    <string name="update_4hour">4 orduro</string>
     <string name="update_6hour">6 orduro</string>
     <string name="update_12hour">12 orduro</string>
     <string name="update_24hour">Egunero</string>

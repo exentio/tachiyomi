@@ -77,6 +77,8 @@
     <string name="portrait">Portret</string>
     <string name="pref_library_update_interval">Frecvență de actualizare</string>
     <string name="update_never">Manual</string>
+    <string name="update_3hour">La fiecare 3 ore</string>
+    <string name="update_4hour">La fiecare 4 ore</string>
     <string name="update_6hour">La fiecare 6 ore</string>
     <string name="update_12hour">La fiecare 12 ore</string>
     <string name="update_24hour">Zilnic</string>

@@ -171,6 +171,8 @@
     <string name="update_24hour">פעם ביום</string>
     <string name="update_12hour">כל 12 שעות</string>
     <string name="update_6hour">כל 6 שעות</string>
+    <string name="update_4hour">כל 4 שעות</string>
+    <string name="update_3hour">כל 3 שעות</string>
     <string name="update_never">ידני</string>
     <string name="pref_library_update_interval">תדירות עדכון ספרייה</string>
     <string name="pref_category_library_update">עדכון גלובלי</string>

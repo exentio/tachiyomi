@@ -79,6 +79,8 @@
     <string name="landscape">Альбомна</string>
     <string name="pref_library_update_interval">Автоматичні оновлення</string>
     <string name="update_never">Вимкнути</string>
+    <string name="update_3hour">Кожні 3 годин</string>
+    <string name="update_4hour">Кожні 4 годин</string>
     <string name="update_6hour">Кожні 6 годин</string>
     <string name="update_12hour">Кожні 12 годин</string>
     <string name="update_24hour">Щодня</string>

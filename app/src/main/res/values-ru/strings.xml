@@ -191,6 +191,8 @@
     <string name="update_24hour">Ежедневно</string>
     <string name="update_48hour">Каждые 2 дня</string>
     <string name="update_6hour">Каждые 6 часов</string>
+    <string name="update_4hour">Каждые 4 часов</string>
+    <string name="update_3hour">Каждые 3 часов</string>
     <string name="update_check_confirm">Загрузить</string>
     <string name="update_check_ignore">Игнорировать</string>
     <string name="update_check_look_for_updates">Поиск обновлений…</string>

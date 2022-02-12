@@ -214,6 +214,8 @@
     <string name="update_24hour">Diario</string>
     <string name="update_12hour">Cada 12 horas</string>
     <string name="update_6hour">Cada 6 horas</string>
+    <string name="update_4hour">Cada 4 horas</string>
+    <string name="update_3hour">Cada 3 horas</string>
     <string name="update_never">Desactivado</string>
     <string name="pref_library_update_interval">Actualizaciones automáticas</string>
     <string name="pref_category_library_update">Actualizaciones</string>

@@ -78,6 +78,8 @@
     <string name="landscape">가로</string>
     <string name="pref_library_update_interval">서재 업데이트 주기</string>
     <string name="update_never">수동</string>
+    <string name="update_3hour">3시간</string>
+    <string name="update_4hour">4시간</string>
     <string name="update_6hour">6시간</string>
     <string name="update_12hour">12시간</string>
     <string name="update_24hour">1일</string>
