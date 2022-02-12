@@ -39,9 +39,6 @@ import kotlinx.coroutines.flow.onEach
 import logcat.AndroidLogcatLogger
 import logcat.LogPriority
 import logcat.LogcatLogger
-import org.acra.config.httpSender
-import org.acra.ktx.initAcra
-import org.acra.sender.HttpSender
 import org.conscrypt.Conscrypt
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -70,7 +67,6 @@ open class App : Application(), DefaultLifecycleObserver, ImageLoaderFactory {
 
         Injekt.importModule(AppModule(this))
 
-        setupAcra()
         setupNotificationChannels()
 
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)
@@ -141,20 +137,6 @@ open class App : Application(), DefaultLifecycleObserver, ImageLoaderFactory {
     override fun onStop(owner: LifecycleOwner) {
         if (!AuthenticatorUtil.isAuthenticating && preferences.lockAppAfter().get() >= 0) {
             SecureActivityDelegate.locked = true
-        }
-    }
-
-    protected open fun setupAcra() {
-        if (BuildConfig.FLAVOR != "dev") {
-            initAcra {
-                buildConfigClass = BuildConfig::class.java
-                excludeMatchingSharedPreferencesKeys = arrayOf(".*username.*", ".*password.*", ".*token.*")
-
-                httpSender {
-                    uri = BuildConfig.ACRA_URI
-                    httpMethod = HttpSender.Method.PUT
-                }
-            }
         }
     }
 
