@@ -56,7 +56,7 @@ class AppUpdateChecker {
 }
 
 val GITHUB_REPO: String by lazy {
-    "exentio/tachiyomi"
+    "exentio/tachiyomi-freqpatch"
 }
 
 val RELEASE_TAG: String by lazy {
