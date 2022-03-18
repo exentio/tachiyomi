@@ -51,7 +51,7 @@ class AppUpdateChecker {
         // Removes prefixes like "r" or "v"
         val newVersion = versionTag.replace("[^\\d.]".toRegex(), "")
 
-        return newVersion != BuildConfig.VERSION_NAME
+        return (newVersion + "-freqpatch") != BuildConfig.VERSION_NAME
     }
 }
 
