@@ -118,6 +118,7 @@ class AboutController : SettingsController(), NoAppBarElevationController {
                     is AppUpdateResult.NoNewUpdate -> {
                         activity?.toast(R.string.update_check_no_new_updates)
                     }
+                    else -> {}
                 }
             } catch (error: Exception) {
                 activity?.toast(error.message)
@@ -135,7 +136,7 @@ class AboutController : SettingsController(), NoAppBarElevationController {
             val outputDf = DateFormat.getDateTimeInstance(
                 DateFormat.MEDIUM,
                 DateFormat.SHORT,
-                Locale.getDefault()
+                Locale.getDefault(),
             )
             outputDf.timeZone = TimeZone.getDefault()
 

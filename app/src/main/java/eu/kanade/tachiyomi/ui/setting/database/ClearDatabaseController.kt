@@ -66,7 +66,7 @@ class ClearDatabaseController :
 
         adapter = FlexibleAdapter<ClearDatabaseSourceItem>(null, this, true)
         binding.recycler.adapter = adapter
-        binding.recycler.layoutManager = LinearLayoutManager(activity)
+        binding.recycler.layoutManager = LinearLayoutManager(activity!!)
         binding.recycler.setHasFixedSize(true)
         adapter?.fastScroller = binding.fastScroller
         recycler = binding.recycler
@@ -88,11 +88,9 @@ class ClearDatabaseController :
         when (item.itemId) {
             R.id.action_select_all -> adapter.selectAll()
             R.id.action_select_inverse -> {
-                val currentSelection = adapter.selectedPositionsAsSet
-                val invertedSelection = (0..adapter.itemCount)
-                    .filterNot { currentSelection.contains(it) }
-                currentSelection.clear()
-                currentSelection.addAll(invertedSelection)
+                adapter.currentItems.forEachIndexed { index, _ ->
+                    adapter.toggleSelection(index)
+                }
             }
         }
         updateFab()

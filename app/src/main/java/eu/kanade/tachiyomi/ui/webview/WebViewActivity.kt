@@ -17,28 +17,38 @@ import androidx.lifecycle.lifecycleScope
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.databinding.WebviewActivityBinding
+import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.online.HttpSource
-import eu.kanade.tachiyomi.ui.base.activity.BaseViewBindingActivity
+import eu.kanade.tachiyomi.ui.base.activity.BaseActivity
 import eu.kanade.tachiyomi.util.system.WebViewClientCompat
 import eu.kanade.tachiyomi.util.system.WebViewUtil
 import eu.kanade.tachiyomi.util.system.getResourceColor
+import eu.kanade.tachiyomi.util.system.logcat
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import reactivecircus.flowbinding.appcompat.navigationClicks
 import reactivecircus.flowbinding.swiperefreshlayout.refreshes
 import uy.kohesive.injekt.injectLazy
 
-class WebViewActivity : BaseViewBindingActivity<WebviewActivityBinding>() {
+class WebViewActivity : BaseActivity() {
+
+    private lateinit var binding: WebviewActivityBinding
 
     private val sourceManager: SourceManager by injectLazy()
+    private val network: NetworkHelper by injectLazy()
 
     private var bundle: Bundle? = null
 
     private var isRefreshing: Boolean = false
+
+    init {
+        registerSecureActivity(this)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -103,7 +113,6 @@ class WebViewActivity : BaseViewBindingActivity<WebviewActivityBinding>() {
                 headers = source.headers.toMultimap().mapValues { it.value.getOrNull(0) ?: "" }.toMutableMap()
                 binding.webview.settings.userAgentString = source.headers["User-Agent"]
             }
-            headers["X-Requested-With"] = WebViewUtil.REQUESTED_WITH
 
             supportActionBar?.subtitle = url
 
@@ -151,16 +160,19 @@ class WebViewActivity : BaseViewBindingActivity<WebviewActivityBinding>() {
         return true
     }
 
-    override fun onPrepareOptionsMenu(menu: Menu?): Boolean {
-        val backItem = menu?.findItem(R.id.action_web_back)
-        val forwardItem = menu?.findItem(R.id.action_web_forward)
-        backItem?.isEnabled = binding.webview.canGoBack()
-        forwardItem?.isEnabled = binding.webview.canGoForward()
-
+    override fun onPrepareOptionsMenu(menu: Menu): Boolean {
         val iconTintColor = getResourceColor(R.attr.colorOnSurface)
         val translucentIconTintColor = ColorUtils.setAlphaComponent(iconTintColor, 127)
-        backItem?.icon?.setTint(if (binding.webview.canGoBack()) iconTintColor else translucentIconTintColor)
-        forwardItem?.icon?.setTint(if (binding.webview.canGoForward()) iconTintColor else translucentIconTintColor)
+
+        menu.findItem(R.id.action_web_back).apply {
+            isEnabled = binding.webview.canGoBack()
+            icon.setTint(if (binding.webview.canGoBack()) iconTintColor else translucentIconTintColor)
+        }
+
+        menu.findItem(R.id.action_web_forward).apply {
+            isEnabled = binding.webview.canGoForward()
+            icon.setTint(if (binding.webview.canGoForward()) iconTintColor else translucentIconTintColor)
+        }
 
         return super.onPrepareOptionsMenu(menu)
     }
@@ -172,6 +184,7 @@ class WebViewActivity : BaseViewBindingActivity<WebviewActivityBinding>() {
             R.id.action_web_refresh -> refreshPage()
             R.id.action_web_share -> shareWebpage()
             R.id.action_web_browser -> openInBrowser()
+            R.id.action_clear_cookies -> clearCookies()
         }
         return super.onOptionsItemSelected(item)
     }
@@ -200,7 +213,13 @@ class WebViewActivity : BaseViewBindingActivity<WebviewActivityBinding>() {
     }
 
     private fun openInBrowser() {
-        openInBrowser(binding.webview.url!!)
+        openInBrowser(binding.webview.url!!, forceDefaultBrowser = true)
+    }
+
+    private fun clearCookies() {
+        val url = binding.webview.url!!
+        val cleared = network.cookieManager.remove(url.toHttpUrl())
+        logcat { "Cleared $cleared cookies for: $url" }
     }
 
     companion object {

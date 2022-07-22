@@ -152,7 +152,7 @@ class HistoryController :
             return
         }
         val adapter = adapter ?: return
-        presenter.requestNext(adapter.itemCount, query)
+        presenter.requestNext(adapter.itemCount - adapter.headerItems.size, query)
     }
 
     override fun noMoreLoad(newItemsSize: Int) {}
@@ -211,7 +211,7 @@ class HistoryController :
 
         // Fixes problem with the overflow icon showing up in lieu of search
         searchItem.fixExpand(
-            onExpand = { invalidateMenuOnExpand() }
+            onExpand = { invalidateMenuOnExpand() },
         )
     }
 

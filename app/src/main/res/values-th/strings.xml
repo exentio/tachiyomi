@@ -9,7 +9,7 @@
     <string name="label_settings">ตั้งค่า</string>
     <string name="label_download_queue">คิวดาวน์โหลด</string>
     <string name="label_library">คลัง</string>
-    <string name="label_backup">สำรองข้อมูลและเรียกคืน</string>
+    <string name="label_backup">สำรองข้อมูลและการเรียกคืน</string>
     <string name="label_extensions">ส่วนขยาย</string>
     <string name="label_extension_info">ข้อมูลส่วนขยาย</string>
     <string name="action_settings">ตั้งค่า</string>
@@ -102,10 +102,10 @@
     <string name="pref_library_update_interval">การอัปเดตอัตโนมัติ</string>
     <string name="update_never">ปิด</string>
     <string name="pref_library_update_restriction">อัปเดตข้อจำกัดของอุปกรณ์โดยอัตโนมัติ</string>
-    <string name="pref_update_only_non_completed">เรื่องที่ยังไม่จบ</string>
+    <string name="pref_update_only_non_completed">เรื่องที่จบแล้ว</string>
     <string name="pref_auto_update_manga_sync">อัปเดตความคืบหน้าหลังอ่าน</string>
-    <string name="pref_start_screen">หน้าจอเริ่ม</string>
-    <string name="default_category">หมวดหมู่เรื่มต้น</string>
+    <string name="pref_start_screen">หน้าเริ่มต้น</string>
+    <string name="default_category">หมวดหมู่เริ่มต้น</string>
     <string name="all_lang">ทั้งหมด</string>
     <string name="ext_trust">เชื่อถือได้</string>
     <string name="ext_untrusted">ไม่น่าเชื่อถือ</string>
@@ -127,7 +127,6 @@
     <string name="pref_keep_screen_on">เปิดหน้าจอไว้ตลอด</string>
     <string name="pref_read_with_volume_keys">ปุ่มปรับระดับเสียง</string>
     <string name="pref_read_with_volume_keys_inverted">สลับด้านปุ่มปรับระดับเสียง</string>
-    <string name="pref_read_with_tapping">การแตะ</string>
     <string name="pref_viewer_type">โหมดการอ่านเริ่มต้น</string>
     <string name="left_to_right_viewer">จากซ้ายไปขวา</string>
     <string name="right_to_left_viewer">จากขวาไปซ้าย</string>
@@ -204,7 +203,7 @@
     <string name="login_success">ลงชื่อเข้าใช้แล้ว</string>
     <string name="invalid_login">ไม่สามารถเข้าสู่ระบบได้</string>
     <string name="unknown_error">ข้อผิดพลาดที่ไม่รู้จัก</string>
-    <string name="updating_category">กำลังอัปเดตคลัง</string>
+    <string name="updating_category">กำลังอัปเดตหมวดหมู่</string>
     <string name="local_source_badge">ภายในเครื่อง</string>
     <string name="no_more_results">ไม่มีผลลัพธ์เพิ่มเติม</string>
     <string name="local_source">แหล่งที่มาภายในเครื่อง</string>
@@ -244,7 +243,7 @@
     <string name="download_unread">ที่ยังไม่ได้อ่าน</string>
     <string name="confirm_delete_chapters">แน่ใจหรือไม่ว่าต้องการลบตอนที่เลือก\?</string>
     <string name="manga_tracking_tab">การติดตาม</string>
-    <string name="reading">การอ่าน</string>
+    <string name="reading">กำลังอ่าน</string>
     <string name="completed">จบแล้ว</string>
     <string name="dropped">ดรอป</string>
     <string name="on_hold">พักไว้</string>
@@ -337,7 +336,7 @@
     <string name="automatic_background">อัตโนมัติ</string>
     <string name="gray_background">เทา</string>
     <string name="pref_create_folder_per_manga_summary">สร้างโฟลเดอร์ตามชื่อเรื่องมังงะ</string>
-    <string name="pref_create_folder_per_manga">บันทึกเพจลงในโฟลเดอร์ที่แยกต่างหาก</string>
+    <string name="pref_create_folder_per_manga">บันทึกหน้าลงในโฟลเดอร์ที่แยกต่างหาก</string>
     <string name="pref_reader_actions">การกระทำ</string>
     <string name="tapping_inverted_both">ทั้งสอง</string>
     <string name="tapping_inverted_vertical">แนวตั้ง</string>
@@ -378,7 +377,7 @@
     <string name="pref_show_nsfw_source">แสดงในรายการแหล่งข้อมูลและส่วนขยาย</string>
     <string name="pref_category_nsfw_content">แหล่งที่มา NSFW (18+)</string>
     <string name="hide_notification_content">ซ่อนเนื้อหาการแจ้งเตือน</string>
-    <string name="secure_screen_summary">ซ่อนเนื้อหาของแอปเมื่อสลับแอปและกันไม่ให้ถ่ายภาพหน้าจอ</string>
+    <string name="secure_screen_summary">หน้าจอปลอดภัยจะซ่อนเนื้อหาของแอปเมื่อสลับแอปและกันไม่ให้ถ่ายภาพหน้าจอ</string>
     <string name="secure_screen">หน้าจอความปลอดภัย</string>
     <plurals name="lock_after_mins">
         <item quantity="other">หลังจาก %1$s นาที</item>
@@ -401,7 +400,7 @@
     <string name="action_webview_refresh">โหลดซ้ำ</string>
     <string name="action_webview_forward">ไปข้างหน้า</string>
     <string name="action_webview_back">กลับ</string>
-    <string name="action_show_errors">แตะเพื่อดูรายละเอียดข้อผิดพลาด</string>
+    <string name="action_show_errors">แตะเพื่อดูรายละเอียด</string>
     <string name="action_move_to_bottom">ย้ายไปด้านล่าง</string>
     <string name="action_move_to_top">ย้ายไปด้านบน</string>
     <string name="action_desc">มากไปน้อย</string>
@@ -521,7 +520,7 @@
     <string name="website">เว็บไซต์</string>
     <string name="battery_optimization_setting_activity_not_found">ไม่สามารถเปิดการตั้งค่าอุปกรณ์</string>
     <string name="battery_optimization_disabled">การเพิ่มประสิทธิภาพแบตเตอรี่ถูกปิดใช้งานอยู่แล้ว</string>
-    <string name="pref_disable_battery_optimization_summary">ช่วยในการอัปเดตและสำรองข้อมูลคัลงในพื้นหลัง</string>
+    <string name="pref_disable_battery_optimization_summary">ช่วยในการอัปเดตและสำรองข้อมูลคลังในพื้นหลัง</string>
     <string name="pref_disable_battery_optimization">ปิดการใช้งานการเพิ่มประสิทธิภาพแบตเตอรี่</string>
     <string name="crash_log_saved">บันทึกบันทึกข้อขัดข้องแล้ว</string>
     <string name="pref_dump_crash_logs_summary">บันทึกบันทึกข้อผิดพลาดลงในแฟ้มเพื่อแบ่งปันกับผู้พัฒนา</string>
@@ -559,9 +558,6 @@
     <string name="download_insufficient_space">ไม่สามารถดาวน์โหลดตอนได้เนื่องจากพื้นที่จัดเก็บเหลือน้อย</string>
     <string name="update_check_eol">ไม่รองรับ Android เวอร์ชันนี้อีกต่อไป</string>
     <string name="file_picker_error">ไม่พบแอพเลือกแฟ้ม</string>
-    <plurals name="notification_update_error">
-        <item quantity="other">อัปเดตล้มเหลว %1$d รายการ</item>
-    </plurals>
     <plurals name="notification_chapters_multiple_and_more">
         <item quantity="other">ตอนที่ %1$s และอีก %2$d ตอน</item>
     </plurals>
@@ -592,7 +588,7 @@
     <string name="information_empty_category_dialog">คุณยังไม่มีหมวดหมู่</string>
     <string name="confirm_lock_change">ยืนยันการเปลี่ยนแปลง</string>
     <string name="relative_time_today">วันนี้</string>
-    <string name="pref_update_only_completely_read">เรื่องที่อ่านจบแล้ว</string>
+    <string name="pref_update_only_completely_read">มีตอนที่ยังไม่ได้อ่าน</string>
     <string name="off">ปิด</string>
     <string name="on">เปิด</string>
     <string name="save_chapter_as_cbz">บันทึกเป็นแฟ้ม CBZ</string>
@@ -600,7 +596,6 @@
     <string name="library_errors_help">สำหรับความช่วยเหลือเกี่ยวกับวิธีการแก้ไขข้อผิดพลาดในการอัปเดตคลัง ไปยัง %1$s</string>
     <string name="local_filter_order_by">เรียงตาม</string>
     <string name="date">วันที่</string>
-    <string name="only_update_restrictions">จะอัปเดตเฉพาะ: %s</string>
     <string name="pref_library_update_show_tab_badge">แสดงไอคอนจำนวนตอนที่ยังไม่ได้อ่าน</string>
     <string name="categorized_display_settings">การตั้งค่าตามหมวดหมู่สำหรับการจัดเรียงและแสดงผล</string>
     <string name="ext_install_service_notif">กำลังติดตั้งส่วนขยาย…</string>
@@ -645,7 +640,7 @@
     <string name="database_clean">ล้างฐานข้อมูลแล้ว</string>
     <string name="about_dont_kill_my_app">ผู้ผลิตบางรายมีข้อจำกัดเพิ่มเติมของแอพที่ปิดบริการพื้นหลัง เว็บไซต์นี้มีข้อมูลเพิ่มเติมเกี่ยวกับวิธีการแก้ไข</string>
     <string name="pref_verbose_logging">การบันทึกอย่างละเอียด</string>
-    <string name="pref_library_update_manga_restriction">ข้อจำกัดการอัปเดตคลัง</string>
+    <string name="pref_library_update_manga_restriction">ข้ามการอัปเดต</string>
     <string name="pref_category_appearance">ลักษณะ</string>
     <string name="pref_app_theme">ธีมแอพ</string>
     <string name="theme_monet">ไดนามิก</string>
@@ -690,4 +685,24 @@
     <string name="on_hiatus">อยู่ระหว่างพัก</string>
     <string name="backup_restore_invalid_uri">เกิดข้อผิดพลาด: URI ว่างเปล่า</string>
     <string name="action_faq_and_guides">คำถามที่พบบ่อยและคู่มือ</string>
+    <string name="webtoon_side_padding_5">5%</string>
+    <string name="pref_navigate_pan">แพนมุมมองเมื่อนำทาง</string>
+    <string name="action_display_cover_only_grid">ตารางแสดงแค่หน้าปก</string>
+    <string name="pref_landscape_zoom">ซูมภาพแนวนอน</string>
+    <string name="skipped_reason_not_caught_up">ถูกข้ามเนื่องจากมีตอนที่ยังไม่ได้อ่าน</string>
+    <string name="skipped_reason_not_started">ถูกข้ามเนื่องจากไม่มีตอนใด ๆ ถูกอ่าน</string>
+    <string name="action_show_manga">แสดงมังงะ</string>
+    <string name="confirm_manga_add_duplicate">มีรายการในคลังที่มีชื่อเดียวกัน แต่มาจากคนละแหล่งที่มา (%1$s)
+\n
+\nยังต้องการดำเนินการต่อหรือไม่\?</string>
+    <string name="action_filter_started">เริ่มอ่านแล้ว</string>
+    <string name="pref_update_only_started">ไม่มีตอนที่ยังไม่ได้อ่าน</string>
+    <string name="skipped_reason_completed">ถูกข้ามเนื่องจากเรื่องนี้จบแล้ว</string>
+    <string name="notification_update_skipped">อัปเดตข้ามแล้ว %1$d รายการ</string>
+    <string name="learn_more">เรียนรู้เพิ่มเติม</string>
+    <string name="notification_update_error">อัปเดตผิดพลาด %1$d รายการ</string>
+    <string name="channel_skipped">ข้ามแล้ว</string>
+    <string name="rotation_reverse_portrait">แนวตั้งแบบกลับด้าน</string>
+    <string name="action_move_to_top_all_for_series">ย้ายเรื่องไปด้านบน</string>
+    <string name="disabled_nav">ปิดใช้งาน</string>
 </resources>

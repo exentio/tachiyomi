@@ -40,12 +40,12 @@ open class TriStateItem(val filter: Filter.TriState) : AbstractFlexibleItem<TriS
                 Filter.TriState.STATE_INCLUDE -> TR.drawable.ic_check_box_24dp
                 Filter.TriState.STATE_EXCLUDE -> TR.drawable.ic_check_box_x_24dp
                 else -> throw Exception("Unknown state")
-            }
+            },
         )?.apply {
-            val color = if (filter.state == Filter.TriState.STATE_INCLUDE) {
-                view.context.getResourceColor(R.attr.colorAccent)
-            } else {
+            val color = if (filter.state == Filter.TriState.STATE_IGNORE) {
                 view.context.getResourceColor(R.attr.colorOnBackground, 0.38f)
+            } else {
+                view.context.getResourceColor(R.attr.colorPrimary)
             }
 
             setTint(color)

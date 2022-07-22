@@ -50,7 +50,7 @@ import java.util.concurrent.TimeUnit
 
 class LibraryController(
     bundle: Bundle? = null,
-    private val preferences: PreferencesHelper = Injekt.get()
+    private val preferences: PreferencesHelper = Injekt.get(),
 ) : SearchableNucleusController<LibraryControllerBinding, LibraryPresenter>(bundle),
     RootController,
     TabbedController,
@@ -210,7 +210,7 @@ class LibraryController(
         binding.btnGlobalSearch.clicks()
             .onEach {
                 router.pushController(
-                    GlobalSearchController(presenter.query).withFadeTransaction()
+                    GlobalSearchController(presenter.query).withFadeTransaction(),
                 )
             }
             .launchIn(viewScope)
@@ -234,8 +234,9 @@ class LibraryController(
         super.onDestroyView(view)
     }
 
-    override fun configureTabs(tabs: TabLayout) {
+    override fun configureTabs(tabs: TabLayout): Boolean {
         with(tabs) {
+            isVisible = false
             tabGravity = TabLayout.GRAVITY_START
             tabMode = TabLayout.MODE_SCROLLABLE
         }
@@ -247,6 +248,8 @@ class LibraryController(
         mangaCountVisibilitySubscription = mangaCountVisibilityRelay.subscribe {
             adapter?.notifyDataSetChanged()
         }
+
+        return false
     }
 
     override fun cleanupTabs(tabs: TabLayout) {
@@ -277,7 +280,7 @@ class LibraryController(
                 listOf(
                     EmptyView.Action(R.string.getting_started_guide, R.drawable.ic_help_24dp) {
                         activity?.openInBrowser("https://tachiyomi.org/help/guides/getting-started")
-                    }
+                    },
                 ),
             )
             (activity as? MainActivity)?.ready = true
@@ -291,16 +294,13 @@ class LibraryController(
         }
 
         // Set the categories
-        adapter.categories = categories
-        adapter.itemsPerCategory = adapter.categories
-            .map { (it.id ?: -1) to (mangaMap[it.id]?.size ?: 0) }
-            .toMap()
+        adapter.updateCategories(categories.map { it to (mangaMap[it.id]?.size ?: 0) })
 
         // Restore active category.
         binding.libraryPager.setCurrentItem(activeCat, false)
 
         // Trigger display of tabs
-        onTabsSettingsChanged()
+        onTabsSettingsChanged(firstLaunch = true)
 
         // Delay the scroll position to allow the view to be properly measured.
         view.post {
@@ -338,9 +338,11 @@ class LibraryController(
         presenter.requestBadgesUpdate()
     }
 
-    private fun onTabsSettingsChanged() {
+    private fun onTabsSettingsChanged(firstLaunch: Boolean = false) {
+        if (!firstLaunch) {
+            mangaCountVisibilityRelay.call(preferences.categoryNumberOfItems().get())
+        }
         tabsVisibilityRelay.call(preferences.categoryTabs().get() && adapter?.categories?.size ?: 0 > 1)
-        mangaCountVisibilityRelay.call(preferences.categoryNumberOfItems().get())
         updateTitle()
     }
 
@@ -551,7 +553,7 @@ class LibraryController(
         val common = presenter.getCommonCategories(mangas)
         // Get indexes of the mix categories to preselect.
         val mix = presenter.getMixCategories(mangas)
-        var preselected = categories.map {
+        val preselected = categories.map {
             when (it) {
                 in common -> QuadStateTextView.State.CHECKED.ordinal
                 in mix -> QuadStateTextView.State.INDETERMINATE.ordinal

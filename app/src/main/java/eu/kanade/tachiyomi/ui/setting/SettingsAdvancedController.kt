@@ -4,10 +4,11 @@ import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.provider.Settings
+import android.webkit.WebStorage
+import android.webkit.WebView
 import androidx.core.net.toUri
 import androidx.preference.PreferenceScreen
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.cache.ChapterCache
 import eu.kanade.tachiyomi.data.database.DatabaseHelper
@@ -15,9 +16,14 @@ import eu.kanade.tachiyomi.data.library.LibraryUpdateService
 import eu.kanade.tachiyomi.data.library.LibraryUpdateService.Target
 import eu.kanade.tachiyomi.data.preference.PreferenceValues
 import eu.kanade.tachiyomi.network.NetworkHelper
+import eu.kanade.tachiyomi.network.PREF_DOH_360
 import eu.kanade.tachiyomi.network.PREF_DOH_ADGUARD
+import eu.kanade.tachiyomi.network.PREF_DOH_ALIDNS
 import eu.kanade.tachiyomi.network.PREF_DOH_CLOUDFLARE
+import eu.kanade.tachiyomi.network.PREF_DOH_DNSPOD
 import eu.kanade.tachiyomi.network.PREF_DOH_GOOGLE
+import eu.kanade.tachiyomi.network.PREF_DOH_QUAD101
+import eu.kanade.tachiyomi.network.PREF_DOH_QUAD9
 import eu.kanade.tachiyomi.ui.base.controller.openInBrowser
 import eu.kanade.tachiyomi.ui.base.controller.withFadeTransaction
 import eu.kanade.tachiyomi.ui.setting.database.ClearDatabaseController
@@ -36,11 +42,17 @@ import eu.kanade.tachiyomi.util.preference.preferenceCategory
 import eu.kanade.tachiyomi.util.preference.summaryRes
 import eu.kanade.tachiyomi.util.preference.switchPreference
 import eu.kanade.tachiyomi.util.preference.titleRes
+import eu.kanade.tachiyomi.util.system.DeviceUtil
+import eu.kanade.tachiyomi.util.system.isDevFlavor
 import eu.kanade.tachiyomi.util.system.isPackageInstalled
+import eu.kanade.tachiyomi.util.system.logcat
 import eu.kanade.tachiyomi.util.system.powerManager
+import eu.kanade.tachiyomi.util.system.setDefaultSettings
 import eu.kanade.tachiyomi.util.system.toast
+import logcat.LogPriority
 import rikka.sui.Sui
 import uy.kohesive.injekt.injectLazy
+import java.io.File
 import eu.kanade.tachiyomi.data.preference.PreferenceKeys as Keys
 
 class SettingsAdvancedController : SettingsController() {
@@ -53,7 +65,7 @@ class SettingsAdvancedController : SettingsController() {
     override fun setupPreferenceScreen(screen: PreferenceScreen) = screen.apply {
         titleRes = R.string.pref_category_advanced
 
-        if (BuildConfig.FLAVOR != "dev") {
+        if (isDevFlavor.not()) {
             switchPreference {
                 key = "acra.enable"
                 titleRes = R.string.pref_enable_acra
@@ -76,7 +88,7 @@ class SettingsAdvancedController : SettingsController() {
             key = Keys.verboseLogging
             titleRes = R.string.pref_verbose_logging
             summaryRes = R.string.pref_verbose_logging_summary
-            defaultValue = false
+            defaultValue = isDevFlavor
 
             onChange {
                 activity?.toast(R.string.requires_app_restart)
@@ -159,6 +171,12 @@ class SettingsAdvancedController : SettingsController() {
                     activity?.toast(R.string.cookies_cleared)
                 }
             }
+            preference {
+                key = "pref_clear_webview_data"
+                titleRes = R.string.pref_clear_webview_data
+
+                onClick { clearWebViewData() }
+            }
             intListPreference {
                 key = Keys.dohProvider
                 titleRes = R.string.pref_dns_over_https
@@ -167,12 +185,22 @@ class SettingsAdvancedController : SettingsController() {
                     "Cloudflare",
                     "Google",
                     "AdGuard",
+                    "Quad9",
+                    "AliDNS",
+                    "DNSPod",
+                    "360",
+                    "Quad 101",
                 )
                 entryValues = arrayOf(
                     "-1",
                     PREF_DOH_CLOUDFLARE.toString(),
                     PREF_DOH_GOOGLE.toString(),
                     PREF_DOH_ADGUARD.toString(),
+                    PREF_DOH_QUAD9.toString(),
+                    PREF_DOH_ALIDNS.toString(),
+                    PREF_DOH_DNSPOD.toString(),
+                    PREF_DOH_360.toString(),
+                    PREF_DOH_QUAD101.toString(),
                 )
                 defaultValue = "-1"
                 summary = "%s"
@@ -209,12 +237,17 @@ class SettingsAdvancedController : SettingsController() {
                 bindTo(preferences.extensionInstaller())
                 titleRes = R.string.ext_installer_pref
                 summary = "%s"
-                entriesRes = arrayOf(
-                    R.string.ext_installer_legacy,
-                    R.string.ext_installer_packageinstaller,
-                    R.string.ext_installer_shizuku,
-                )
-                entryValues = PreferenceValues.ExtensionInstaller.values().map { it.name }.toTypedArray()
+
+                // PackageInstaller doesn't work on MIUI properly for non-allowlisted apps
+                val values = if (DeviceUtil.isMiui) {
+                    PreferenceValues.ExtensionInstaller.values()
+                        .filter { it != PreferenceValues.ExtensionInstaller.PACKAGEINSTALLER }
+                } else {
+                    PreferenceValues.ExtensionInstaller.values().toList()
+                }
+
+                entriesRes = values.map { it.titleResId }.toTypedArray()
+                entryValues = values.map { it.name }.toTypedArray()
 
                 onChange {
                     if (it == PreferenceValues.ExtensionInstaller.SHIZUKU.name &&
@@ -243,7 +276,7 @@ class SettingsAdvancedController : SettingsController() {
                 bindTo(preferences.tabletUiMode())
                 titleRes = R.string.pref_tablet_ui_mode
                 summary = "%s"
-                entriesRes = arrayOf(R.string.automatic_background, R.string.lock_always, R.string.landscape, R.string.lock_never)
+                entriesRes = PreferenceValues.TabletUiMode.values().map { it.titleResId }.toTypedArray()
                 entryValues = PreferenceValues.TabletUiMode.values().map { it.name }.toTypedArray()
 
                 onChange {
@@ -265,8 +298,27 @@ class SettingsAdvancedController : SettingsController() {
                         resources?.getString(R.string.used_cache, chapterCache.readableSize)
                 }
             } catch (e: Throwable) {
+                logcat(LogPriority.ERROR, e)
                 withUIContext { activity?.toast(R.string.cache_delete_error) }
             }
+        }
+    }
+
+    private fun clearWebViewData() {
+        if (activity == null) return
+        try {
+            val webview = WebView(activity!!)
+            webview.setDefaultSettings()
+            webview.clearCache(true)
+            webview.clearFormData()
+            webview.clearHistory()
+            webview.clearSslPreferences()
+            WebStorage.getInstance().deleteAllData()
+            activity?.applicationInfo?.dataDir?.let { File("$it/app_webview/").deleteRecursively() }
+            activity?.toast(R.string.webview_data_deleted)
+        } catch (e: Throwable) {
+            logcat(LogPriority.ERROR, e)
+            activity?.toast(R.string.cache_delete_error)
         }
     }
 }

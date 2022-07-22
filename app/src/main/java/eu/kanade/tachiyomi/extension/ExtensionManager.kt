@@ -36,7 +36,7 @@ import uy.kohesive.injekt.api.get
  */
 class ExtensionManager(
     private val context: Context,
-    private val preferences: PreferencesHelper = Injekt.get()
+    private val preferences: PreferencesHelper = Injekt.get(),
 ) {
 
     /**
@@ -242,11 +242,6 @@ class ExtensionManager(
      */
     fun setInstalling(downloadId: Long) {
         installer.updateInstallStep(downloadId, InstallStep.Installing)
-    }
-
-    fun setInstallationResult(downloadId: Long, result: Boolean) {
-        val step = if (result) InstallStep.Installed else InstallStep.Error
-        installer.updateInstallStep(downloadId, step)
     }
 
     fun updateInstallStep(downloadId: Long, step: InstallStep) {

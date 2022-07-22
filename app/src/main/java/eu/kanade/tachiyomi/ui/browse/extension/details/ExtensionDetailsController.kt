@@ -55,7 +55,7 @@ class ExtensionDetailsController(bundle: Bundle? = null) :
     private var preferenceScreen: PreferenceScreen? = null
 
     constructor(pkgName: String) : this(
-        bundleOf(PKGNAME_KEY to pkgName)
+        bundleOf(PKGNAME_KEY to pkgName),
     )
 
     init {
@@ -91,7 +91,7 @@ class ExtensionDetailsController(bundle: Bundle? = null) :
         binding.extensionPrefsRecycler.layoutManager = LinearLayoutManager(context)
         binding.extensionPrefsRecycler.adapter = ConcatAdapter(
             ExtensionDetailsHeaderAdapter(presenter),
-            initPreferencesAdapter(context, extension)
+            initPreferencesAdapter(context, extension),
         )
     }
 
@@ -166,7 +166,7 @@ class ExtensionDetailsController(bundle: Bundle? = null) :
                 block()
                 onSettingsClick = View.OnClickListener {
                     router.pushController(
-                        SourcePreferencesController(source.id).withFadeTransaction()
+                        SourcePreferencesController(source.id).withFadeTransaction(),
                     )
                 }
             }
@@ -259,11 +259,11 @@ class ExtensionDetailsController(bundle: Bundle? = null) :
             ?.map { it.baseUrl }
             ?.distinct() ?: emptyList()
 
-        urls.forEach {
+        val cleared = urls.sumOf {
             network.cookieManager.remove(it.toHttpUrl())
         }
 
-        logcat { "Cleared cookies for: ${urls.joinToString()}" }
+        logcat { "Cleared $cleared cookies for: ${urls.joinToString()}" }
     }
 
     private fun Source.isEnabled(): Boolean {

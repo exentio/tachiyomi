@@ -155,6 +155,14 @@
     <style name="Widget.Tachiyomi.Button.OutlinedButton" parent="Widget.Material3.Button.OutlinedButton" />
 
 
+    <!--=======================-->
+    <!--Widgets.MaterialDivider-->
+    <!--=======================-->
+    <style name="Widget.Tachiyomi.MaterialDivider" parent="Widget.Material3.MaterialDivider">
+        <item name="dividerColor">@color/divider_default</item>
+    </style>
+
+
     <!--=================-->
     <!--Widgets.TabLayout-->
     <!--=================-->
@@ -184,6 +192,8 @@
     <style name="Widget.Tachiyomi.Slider" parent="Widget.Material3.Slider">
         <item name="labelBehavior">gone</item>
         <item name="tickVisible">false</item>
+        <item name="trackColorInactive">@color/slider_inactive_track</item>
+        <item name="trackColorActive">@color/slider_active_track</item>
     </style>
 
 
@@ -191,10 +201,6 @@
     <!--Navigation Views-->
     <!--================-->
     <style name="Widget.Tachiyomi.BottomNavigationView" parent="Widget.Material3.BottomNavigationView">
-        <item name="itemPaddingBottom">10dp</item>
-        <item name="itemPaddingTop">10dp</item>
-        <item name="android:minHeight">68dp</item>
-
         <item name="itemRippleColor">@color/ripple_toolbar_fainter</item>
         <item name="labelVisibilityMode">labeled</item>
     </style>
