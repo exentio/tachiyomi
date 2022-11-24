@@ -3,19 +3,18 @@ package eu.kanade.tachiyomi.data.backup
 import android.content.Context
 import android.net.Uri
 import androidx.core.net.toUri
+import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
-import androidx.work.Worker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.hippo.unifile.UniFile
-import eu.kanade.tachiyomi.data.backup.full.FullBackupManager
+import eu.kanade.domain.backup.service.BackupPreferences
 import eu.kanade.tachiyomi.data.notification.Notifications
-import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.util.system.logcat
 import eu.kanade.tachiyomi.util.system.notificationManager
 import logcat.LogPriority
@@ -24,19 +23,19 @@ import uy.kohesive.injekt.api.get
 import java.util.concurrent.TimeUnit
 
 class BackupCreatorJob(private val context: Context, workerParams: WorkerParameters) :
-    Worker(context, workerParams) {
+    CoroutineWorker(context, workerParams) {
 
-    override fun doWork(): Result {
-        val preferences = Injekt.get<PreferencesHelper>()
+    override suspend fun doWork(): Result {
+        val backupPreferences = Injekt.get<BackupPreferences>()
         val notifier = BackupNotifier(context)
-        val uri = inputData.getString(LOCATION_URI_KEY)?.let { Uri.parse(it) }
-            ?: preferences.backupsDirectory().get().toUri()
+        val uri = inputData.getString(LOCATION_URI_KEY)?.toUri()
+            ?: backupPreferences.backupsDirectory().get().toUri()
         val flags = inputData.getInt(BACKUP_FLAGS_KEY, BackupConst.BACKUP_ALL)
         val isAutoBackup = inputData.getBoolean(IS_AUTO_BACKUP_KEY, true)
 
         context.notificationManager.notify(Notifications.ID_BACKUP_PROGRESS, notifier.showBackupProgress().build())
         return try {
-            val location = FullBackupManager(context).createBackup(uri, flags, isAutoBackup)
+            val location = BackupManager(context).createBackup(uri, flags, isAutoBackup)
             if (!isAutoBackup) notifier.showBackupComplete(UniFile.fromUri(context, location.toUri()))
             Result.success()
         } catch (e: Exception) {
@@ -55,8 +54,8 @@ class BackupCreatorJob(private val context: Context, workerParams: WorkerParamet
         }
 
         fun setupTask(context: Context, prefInterval: Int? = null) {
-            val preferences = Injekt.get<PreferencesHelper>()
-            val interval = prefInterval ?: preferences.backupInterval().get()
+            val backupPreferences = Injekt.get<BackupPreferences>()
+            val interval = prefInterval ?: backupPreferences.backupInterval().get()
             val workManager = WorkManager.getInstance(context)
             if (interval > 0) {
                 val request = PeriodicWorkRequestBuilder<BackupCreatorJob>(

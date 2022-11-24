@@ -8,22 +8,24 @@ import android.os.Parcel
 import android.os.Parcelable
 import android.util.AttributeSet
 import android.view.ViewPropertyAnimator
-import androidx.coordinatorlayout.widget.CoordinatorLayout
-import androidx.core.view.doOnLayout
-import androidx.core.view.updateLayoutParams
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.max
 import androidx.customview.view.AbsSavedState
 import androidx.interpolator.view.animation.FastOutLinearInInterpolator
 import androidx.interpolator.view.animation.LinearOutSlowInInterpolator
-import androidx.lifecycle.findViewTreeLifecycleOwner
-import androidx.lifecycle.lifecycleScope
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import eu.kanade.tachiyomi.R
-import eu.kanade.tachiyomi.data.preference.PreferencesHelper
-import eu.kanade.tachiyomi.util.preference.asImmediateFlow
 import eu.kanade.tachiyomi.util.system.applySystemAnimatorScale
-import kotlinx.coroutines.flow.launchIn
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
+import eu.kanade.tachiyomi.util.system.pxToDp
 
 class TachiyomiBottomNavigationView @JvmOverloads constructor(
     context: Context,
@@ -35,25 +37,6 @@ class TachiyomiBottomNavigationView @JvmOverloads constructor(
     private var currentAnimator: ViewPropertyAnimator? = null
 
     private var currentState = STATE_UP
-
-    init {
-        // Hide on scroll
-        doOnLayout {
-            findViewTreeLifecycleOwner()?.lifecycleScope?.let { scope ->
-                Injekt.get<PreferencesHelper>().hideBottomBarOnScroll()
-                    .asImmediateFlow {
-                        updateLayoutParams<CoordinatorLayout.LayoutParams> {
-                            behavior = if (it) {
-                                HideBottomNavigationOnScrollBehavior()
-                            } else {
-                                null
-                            }
-                        }
-                    }
-                    .launchIn(scope)
-            }
-        }
-    }
 
     override fun onSaveInstanceState(): Parcelable {
         val superState = super.onSaveInstanceState()
@@ -79,6 +62,11 @@ class TachiyomiBottomNavigationView @JvmOverloads constructor(
         super.setTranslationY(translationY)
     }
 
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        bottomNavPadding = h.pxToDp.dp
+    }
+
     /**
      * Shows this view up.
      */
@@ -92,6 +80,7 @@ class TachiyomiBottomNavigationView @JvmOverloads constructor(
             SLIDE_UP_ANIMATION_DURATION,
             LinearOutSlowInInterpolator(),
         )
+        bottomNavPadding = height.pxToDp.dp
     }
 
     /**
@@ -107,6 +96,7 @@ class TachiyomiBottomNavigationView @JvmOverloads constructor(
             SLIDE_DOWN_ANIMATION_DURATION,
             FastOutLinearInInterpolator(),
         )
+        bottomNavPadding = 0.dp
     }
 
     private fun animateTranslation(targetY: Float, duration: Long, interpolator: TimeInterpolator) {
@@ -115,12 +105,13 @@ class TachiyomiBottomNavigationView @JvmOverloads constructor(
             .setInterpolator(interpolator)
             .setDuration(duration)
             .applySystemAnimatorScale(context)
-            .setListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator?) {
-                    currentAnimator = null
-                    postInvalidate()
-                }
-            },
+            .setListener(
+                object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: Animator) {
+                        currentAnimator = null
+                        postInvalidate()
+                    }
+                },
             )
     }
 
@@ -165,5 +156,22 @@ class TachiyomiBottomNavigationView @JvmOverloads constructor(
 
         private const val SLIDE_UP_ANIMATION_DURATION = 225L
         private const val SLIDE_DOWN_ANIMATION_DURATION = 175L
+
+        private var bottomNavPadding by mutableStateOf(0.dp)
+
+        /**
+         * Merges [bottomNavPadding] to the origin's [PaddingValues] bottom side.
+         */
+        @ReadOnlyComposable
+        @Composable
+        fun withBottomNavPadding(origin: PaddingValues = PaddingValues()): PaddingValues {
+            val layoutDirection = LocalLayoutDirection.current
+            return PaddingValues(
+                start = origin.calculateStartPadding(layoutDirection),
+                top = origin.calculateTopPadding(),
+                end = origin.calculateEndPadding(layoutDirection),
+                bottom = max(origin.calculateBottomPadding(), bottomNavPadding),
+            )
+        }
     }
 }

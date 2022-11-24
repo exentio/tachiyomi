@@ -10,13 +10,14 @@ import androidx.appcompat.widget.SearchView
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.LinearLayoutManager
 import dev.chrisbanes.insetter.applyInsetter
+import eu.kanade.domain.base.BasePreferences
+import eu.kanade.domain.manga.model.Manga
+import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.R
-import eu.kanade.tachiyomi.data.database.models.Manga
-import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.databinding.GlobalSearchControllerBinding
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.ui.base.controller.SearchableNucleusController
-import eu.kanade.tachiyomi.ui.base.controller.withFadeTransaction
+import eu.kanade.tachiyomi.ui.base.controller.pushController
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceController
 import eu.kanade.tachiyomi.ui.manga.MangaController
 import uy.kohesive.injekt.injectLazy
@@ -33,7 +34,8 @@ open class GlobalSearchController(
     GlobalSearchCardAdapter.OnMangaClickListener,
     GlobalSearchAdapter.OnTitleClickListener {
 
-    private val preferences: PreferencesHelper by injectLazy()
+    private val preferences: BasePreferences by injectLazy()
+    private val sourcePreferences: SourcePreferences by injectLazy()
 
     /**
      * Adapter containing search results grouped by lang.
@@ -65,7 +67,7 @@ open class GlobalSearchController(
      * @param manga clicked item containing manga information.
      */
     override fun onMangaClick(manga: Manga) {
-        router.pushController(MangaController(manga, true).withFadeTransaction())
+        router.pushController(MangaController(manga.id, true))
     }
 
     /**
@@ -90,11 +92,23 @@ open class GlobalSearchController(
             inflater,
             R.menu.global_search,
             R.id.action_search,
-            null,
-            false, // the onMenuItemActionExpand will handle this
         )
 
         optionsMenuSearchItem = menu.findItem(R.id.action_search)
+
+        // Focus search on launch from browse screen
+        if (initialQuery.isNullOrEmpty()) {
+            optionsMenuSearchItem?.expandActionView()
+        }
+    }
+
+    override fun onSearchMenuItemActionCollapse(item: MenuItem?) {
+        super.onSearchMenuItemActionCollapse(item)
+        // Close this screen if query is empty
+        // i.e. launch from browse screen and clicking the back button icon without making any search
+        if (presenter.query.isEmpty()) {
+            router.popCurrentController()
+        }
     }
 
     override fun onSearchMenuItemActionExpand(item: MenuItem?) {
@@ -174,7 +188,7 @@ open class GlobalSearchController(
      * @param searchResult result of search.
      */
     fun setItems(searchResult: List<GlobalSearchItem>) {
-        if (searchResult.isEmpty() && preferences.searchPinnedSourcesOnly()) {
+        if (searchResult.isEmpty() && sourcePreferences.searchPinnedSourcesOnly().get()) {
             binding.emptyView.show(R.string.no_pinned_sources)
         } else {
             binding.emptyView.hide()
@@ -205,8 +219,8 @@ open class GlobalSearchController(
      */
     override fun onTitleClick(source: CatalogueSource) {
         if (!preferences.incognitoMode().get()) {
-            preferences.lastUsedSource().set(source.id)
+            sourcePreferences.lastUsedSource().set(source.id)
         }
-        router.pushController(BrowseSourceController(source, presenter.query).withFadeTransaction())
+        router.pushController(BrowseSourceController(source, presenter.query))
     }
 }

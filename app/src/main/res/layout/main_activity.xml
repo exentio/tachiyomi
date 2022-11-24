@@ -23,62 +23,37 @@
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            android:theme="?attr/actionBarTheme"
-            app:layout_scrollFlags="scroll|enterAlways|snap" />
+            android:theme="?attr/actionBarTheme" />
 
-        <com.google.android.material.tabs.TabLayout
-            android:id="@+id/tabs"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:visibility="gone" />
-
-        <FrameLayout
+        <TextView
             android:id="@+id/downloaded_only"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="?attr/colorTertiary"
+            android:gravity="center"
+            android:padding="4dp"
+            android:text="@string/label_downloaded_only"
+            android:textAlignment="center"
+            android:textAppearance="?attr/textAppearanceLabelMedium"
+            android:textColor="?attr/colorOnTertiary"
             android:visibility="gone"
-            tools:visibility="visible">
+            tools:visibility="visible" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:padding="4dp"
-                android:text="@string/label_downloaded_only"
-                android:textColor="?attr/colorOnTertiary" />
-
-        </FrameLayout>
-
-        <FrameLayout
+        <TextView
             android:id="@+id/incognito_mode"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="?attr/colorPrimary"
+            android:gravity="center"
+            android:padding="4dp"
+            android:text="@string/pref_incognito_mode"
+            android:textAlignment="center"
+            android:textAppearance="?attr/textAppearanceLabelMedium"
+            android:textColor="?attr/colorOnPrimary"
             android:visibility="gone"
-            tools:visibility="visible">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:padding="4dp"
-                android:text="@string/pref_incognito_mode"
-                android:textColor="?attr/colorOnPrimary" />
-
-        </FrameLayout>
+            tools:visibility="visible" />
 
     </com.google.android.material.appbar.TachiyomiAppBarLayout>
-
-    <include
-        android:id="@+id/fab_layout"
-        layout="@layout/main_activity_fab" />
-
-    <eu.kanade.tachiyomi.widget.ActionModeWithToolbar
-        android:id="@+id/action_toolbar"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom" />
 
     <eu.kanade.tachiyomi.widget.TachiyomiBottomNavigationView
         android:id="@+id/bottom_nav"

@@ -1,157 +1,144 @@
 package eu.kanade.tachiyomi.ui.recent.history
 
-import android.os.Bundle
-import eu.kanade.tachiyomi.data.database.DatabaseHelper
-import eu.kanade.tachiyomi.data.database.models.Chapter
-import eu.kanade.tachiyomi.data.database.models.History
-import eu.kanade.tachiyomi.data.database.models.Manga
-import eu.kanade.tachiyomi.data.database.models.MangaChapterHistory
-import eu.kanade.tachiyomi.data.preference.PreferencesHelper
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import eu.kanade.core.util.insertSeparators
+import eu.kanade.domain.base.BasePreferences
+import eu.kanade.domain.chapter.model.Chapter
+import eu.kanade.domain.history.interactor.DeleteAllHistory
+import eu.kanade.domain.history.interactor.GetHistory
+import eu.kanade.domain.history.interactor.GetNextUnreadChapters
+import eu.kanade.domain.history.interactor.RemoveHistoryById
+import eu.kanade.domain.history.interactor.RemoveHistoryByMangaId
+import eu.kanade.domain.history.model.HistoryWithRelations
+import eu.kanade.presentation.history.HistoryUiModel
+import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
-import eu.kanade.tachiyomi.ui.recent.DateSectionItem
+import eu.kanade.tachiyomi.util.lang.launchIO
 import eu.kanade.tachiyomi.util.lang.toDateKey
-import rx.Observable
-import rx.Subscription
-import rx.android.schedulers.AndroidSchedulers
-import uy.kohesive.injekt.injectLazy
-import java.text.DateFormat
-import java.util.Calendar
+import eu.kanade.tachiyomi.util.lang.withUIContext
+import eu.kanade.tachiyomi.util.system.logcat
+import eu.kanade.tachiyomi.util.system.toast
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
+import logcat.LogPriority
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import java.util.Date
-import java.util.TreeMap
 
-/**
- * Presenter of HistoryFragment.
- * Contains information and data for fragment.
- * Observable updates should be called from here.
- */
-class HistoryPresenter : BasePresenter<HistoryController>() {
+class HistoryPresenter(
+    private val state: HistoryStateImpl = HistoryState() as HistoryStateImpl,
+    private val getHistory: GetHistory = Injekt.get(),
+    private val getNextUnreadChapters: GetNextUnreadChapters = Injekt.get(),
+    private val deleteAllHistory: DeleteAllHistory = Injekt.get(),
+    private val removeHistoryById: RemoveHistoryById = Injekt.get(),
+    private val removeHistoryByMangaId: RemoveHistoryByMangaId = Injekt.get(),
+    preferences: BasePreferences = Injekt.get(),
+) : BasePresenter<HistoryController>(), HistoryState by state {
 
-    private val db: DatabaseHelper by injectLazy()
-    private val preferences: PreferencesHelper by injectLazy()
+    private val _events: Channel<Event> = Channel(Int.MAX_VALUE)
+    val events: Flow<Event> = _events.receiveAsFlow()
 
-    private val relativeTime: Int = preferences.relativeTime().get()
-    private val dateFormat: DateFormat = preferences.dateFormat()
+    val isDownloadOnly: Boolean by preferences.downloadedOnly().asState()
 
-    private var recentMangaSubscription: Subscription? = null
+    val isIncognitoMode: Boolean by preferences.incognitoMode().asState()
 
-    override fun onCreate(savedState: Bundle?) {
-        super.onCreate(savedState)
-
-        // Used to get a list of recently read manga
-        updateList()
-    }
-
-    fun requestNext(offset: Int, search: String = "") {
-        getRecentMangaObservable(offset = offset, search = search)
-            .subscribeLatestCache(
-                { view, mangas ->
-                    view.onNextManga(mangas)
-                },
-                HistoryController::onAddPageError,
-            )
-    }
-
-    /**
-     * Get recent manga observable
-     * @return list of history
-     */
-    private fun getRecentMangaObservable(limit: Int = 25, offset: Int = 0, search: String = ""): Observable<List<HistoryItem>> {
-        // Set date limit for recent manga
-        val cal = Calendar.getInstance().apply {
-            time = Date()
-            add(Calendar.YEAR, -50)
+    @Composable
+    fun getHistory(): Flow<List<HistoryUiModel>> {
+        val query = searchQuery ?: ""
+        return remember(query) {
+            getHistory.subscribe(query)
+                .distinctUntilChanged()
+                .catch { error ->
+                    logcat(LogPriority.ERROR, error)
+                    _events.send(Event.InternalError)
+                }
+                .map { pagingData ->
+                    pagingData.toHistoryUiModels()
+                }
         }
+    }
 
-        return db.getRecentManga(cal.time, limit, offset, search).asRxObservable()
-            .map { recents ->
-                val map = TreeMap<Date, MutableList<MangaChapterHistory>> { d1, d2 -> d2.compareTo(d1) }
-                val byDay = recents
-                    .groupByTo(map) { it.history.last_read.toDateKey() }
-                byDay.flatMap { entry ->
-                    val dateItem = DateSectionItem(entry.key, relativeTime, dateFormat)
-                    entry.value.map { HistoryItem(it, dateItem) }
+    private fun List<HistoryWithRelations>.toHistoryUiModels(): List<HistoryUiModel> {
+        return map { HistoryUiModel.Item(it) }
+            .insertSeparators { before, after ->
+                val beforeDate = before?.item?.readAt?.time?.toDateKey() ?: Date(0)
+                val afterDate = after?.item?.readAt?.time?.toDateKey() ?: Date(0)
+                when {
+                    beforeDate.time != afterDate.time && afterDate.time != 0L -> HistoryUiModel.Header(afterDate)
+                    // Return null to avoid adding a separator between two items.
+                    else -> null
                 }
             }
-            .observeOn(AndroidSchedulers.mainThread())
     }
 
-    /**
-     * Reset last read of chapter to 0L
-     * @param history history belonging to chapter
-     */
-    fun removeFromHistory(history: History) {
-        history.last_read = 0L
-        db.updateHistoryLastRead(history).asRxObservable()
-            .subscribe()
+    fun removeFromHistory(history: HistoryWithRelations) {
+        presenterScope.launchIO {
+            removeHistoryById.await(history)
+        }
     }
 
-    /**
-     * Pull a list of history from the db
-     * @param search a search query to use for filtering
-     */
-    fun updateList(search: String = "") {
-        recentMangaSubscription?.unsubscribe()
-        recentMangaSubscription = getRecentMangaObservable(search = search)
-            .subscribeLatestCache(
-                { view, mangas ->
-                    view.onNextManga(mangas, true)
-                },
-                HistoryController::onAddPageError,
-            )
-    }
-
-    /**
-     * Removes all chapters belonging to manga from history.
-     * @param mangaId id of manga
-     */
     fun removeAllFromHistory(mangaId: Long) {
-        db.getHistoryByMangaId(mangaId).asRxSingle()
-            .map { list ->
-                list.forEach { it.last_read = 0L }
-                db.updateHistoryLastRead(list).executeAsBlocking()
-            }
-            .subscribe()
-    }
-
-    /**
-     * Retrieves the next chapter of the given one.
-     *
-     * @param chapter the chapter of the history object.
-     * @param manga the manga of the chapter.
-     */
-    fun getNextChapter(chapter: Chapter, manga: Manga): Chapter? {
-        if (!chapter.read) {
-            return chapter
-        }
-
-        val sortFunction: (Chapter, Chapter) -> Int = when (manga.sorting) {
-            Manga.CHAPTER_SORTING_SOURCE -> { c1, c2 -> c2.source_order.compareTo(c1.source_order) }
-            Manga.CHAPTER_SORTING_NUMBER -> { c1, c2 -> c1.chapter_number.compareTo(c2.chapter_number) }
-            Manga.CHAPTER_SORTING_UPLOAD_DATE -> { c1, c2 -> c1.date_upload.compareTo(c2.date_upload) }
-            else -> throw NotImplementedError("Unknown sorting method")
-        }
-
-        val chapters = db.getChapters(manga).executeAsBlocking()
-            .sortedWith { c1, c2 -> sortFunction(c1, c2) }
-
-        val currChapterIndex = chapters.indexOfFirst { chapter.id == it.id }
-        return when (manga.sorting) {
-            Manga.CHAPTER_SORTING_SOURCE -> chapters.getOrNull(currChapterIndex + 1)
-            Manga.CHAPTER_SORTING_NUMBER -> {
-                val chapterNumber = chapter.chapter_number
-
-                ((currChapterIndex + 1) until chapters.size)
-                    .map { chapters[it] }
-                    .firstOrNull {
-                        it.chapter_number > chapterNumber &&
-                            it.chapter_number <= chapterNumber + 1
-                    }
-            }
-            Manga.CHAPTER_SORTING_UPLOAD_DATE -> {
-                chapters.drop(currChapterIndex + 1)
-                    .firstOrNull { it.date_upload >= chapter.date_upload }
-            }
-            else -> throw NotImplementedError("Unknown sorting method")
+        presenterScope.launchIO {
+            removeHistoryByMangaId.await(mangaId)
         }
     }
+
+    fun getNextChapterForManga(mangaId: Long, chapterId: Long) {
+        presenterScope.launchIO {
+            val chapter = getNextUnreadChapters.await(mangaId, chapterId).firstOrNull()
+            _events.send(if (chapter != null) Event.OpenChapter(chapter) else Event.NoNextChapterFound)
+        }
+    }
+
+    fun deleteAllHistory() {
+        presenterScope.launchIO {
+            val result = deleteAllHistory.await()
+            if (!result) return@launchIO
+            withUIContext {
+                view?.activity?.toast(R.string.clear_history_completed)
+            }
+        }
+    }
+
+    fun resumeLastChapterRead() {
+        presenterScope.launchIO {
+            val chapter = getNextUnreadChapters.await()
+            _events.send(if (chapter != null) Event.OpenChapter(chapter) else Event.NoNextChapterFound)
+        }
+    }
+
+    sealed class Dialog {
+        object DeleteAll : Dialog()
+        data class Delete(val history: HistoryWithRelations) : Dialog()
+    }
+
+    sealed class Event {
+        object InternalError : Event()
+        object NoNextChapterFound : Event()
+        data class OpenChapter(val chapter: Chapter) : Event()
+    }
+}
+
+@Stable
+interface HistoryState {
+    var searchQuery: String?
+    var dialog: HistoryPresenter.Dialog?
+}
+
+fun HistoryState(): HistoryState {
+    return HistoryStateImpl()
+}
+
+class HistoryStateImpl : HistoryState {
+    override var searchQuery: String? by mutableStateOf(null)
+    override var dialog: HistoryPresenter.Dialog? by mutableStateOf(null)
 }

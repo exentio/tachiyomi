@@ -5,14 +5,16 @@ import android.os.Parcel
 import android.os.Parcelable
 import android.util.AttributeSet
 import android.view.View
+import androidx.compose.ui.platform.ComposeView
 import androidx.coordinatorlayout.R
 import androidx.coordinatorlayout.widget.CoordinatorLayout
+import androidx.core.view.ViewCompat
 import androidx.core.view.doOnLayout
 import androidx.core.view.isVisible
 import androidx.customview.view.AbsSavedState
 import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.tabs.TabLayout
-import eu.kanade.tachiyomi.util.system.isTablet
+import eu.kanade.tachiyomi.util.system.isTabletUi
 import eu.kanade.tachiyomi.util.view.findChild
 
 /**
@@ -32,24 +34,8 @@ class TachiyomiCoordinatorLayout @JvmOverloads constructor(
     defStyleAttr: Int = R.attr.coordinatorLayoutStyle,
 ) : CoordinatorLayout(context, attrs, defStyleAttr) {
 
-    /**
-     * Keep lifted state and do nothing on tablet UI
-     */
-    private val isTablet = context.isTablet()
-
     private var appBarLayout: AppBarLayout? = null
     private var tabLayout: TabLayout? = null
-
-    /**
-     * If true, [AppBarLayout] child will be lifted on nested scroll.
-     */
-    var isLiftAppBarOnScroll = true
-
-    /**
-     * Internal check
-     */
-    private val canLiftAppBarOnScroll
-        get() = !isTablet && isLiftAppBarOnScroll
 
     override fun onNestedScroll(
         target: View,
@@ -62,8 +48,17 @@ class TachiyomiCoordinatorLayout @JvmOverloads constructor(
     ) {
         super.onNestedScroll(target, dxConsumed, dyConsumed, dxUnconsumed, dyUnconsumed, type, consumed)
         // Disable elevation overlay when tabs are visible
-        if (canLiftAppBarOnScroll) {
-            appBarLayout?.isLifted = (dyConsumed != 0 || dyUnconsumed >= 0) && tabLayout?.isVisible == false
+        if (context.isTabletUi().not()) {
+            if (target is ComposeView) {
+                val scrollCondition = if (type == ViewCompat.TYPE_NON_TOUCH) {
+                    dyUnconsumed >= 0
+                } else {
+                    dyConsumed != 0 || dyUnconsumed >= 0
+                }
+                appBarLayout?.isLifted = scrollCondition && tabLayout?.isVisible == false
+            } else {
+                appBarLayout?.isLifted = (dyConsumed != 0 || dyUnconsumed >= 0) && tabLayout?.isVisible == false
+            }
         }
     }
 

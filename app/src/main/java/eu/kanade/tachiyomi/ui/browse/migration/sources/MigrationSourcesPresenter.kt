@@ -1,82 +1,75 @@
 package eu.kanade.tachiyomi.ui.browse.migration.sources
 
-import android.os.Bundle
-import com.jakewharton.rxrelay.BehaviorRelay
-import eu.kanade.tachiyomi.data.database.DatabaseHelper
-import eu.kanade.tachiyomi.data.database.models.Manga
-import eu.kanade.tachiyomi.data.preference.PreferencesHelper
-import eu.kanade.tachiyomi.source.LocalSource
-import eu.kanade.tachiyomi.source.SourceManager
-import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
-import eu.kanade.tachiyomi.util.lang.combineLatest
-import rx.android.schedulers.AndroidSchedulers
-import rx.schedulers.Schedulers
+import eu.kanade.domain.source.interactor.GetSourcesWithFavoriteCount
+import eu.kanade.domain.source.interactor.SetMigrateSorting
+import eu.kanade.domain.source.service.SourcePreferences
+import eu.kanade.presentation.browse.MigrateSourceState
+import eu.kanade.presentation.browse.MigrateSourceStateImpl
+import eu.kanade.tachiyomi.util.lang.launchIO
+import eu.kanade.tachiyomi.util.system.logcat
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.receiveAsFlow
+import logcat.LogPriority
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
-import java.text.Collator
-import java.util.Collections
-import java.util.Locale
 
 class MigrationSourcesPresenter(
-    private val sourceManager: SourceManager = Injekt.get(),
-    private val db: DatabaseHelper = Injekt.get(),
-) : BasePresenter<MigrationSourcesController>() {
+    private val presenterScope: CoroutineScope,
+    private val state: MigrateSourceStateImpl = MigrateSourceState() as MigrateSourceStateImpl,
+    private val preferences: SourcePreferences = Injekt.get(),
+    private val getSourcesWithFavoriteCount: GetSourcesWithFavoriteCount = Injekt.get(),
+    private val setMigrateSorting: SetMigrateSorting = Injekt.get(),
+) : MigrateSourceState by state {
 
-    private val preferences: PreferencesHelper by injectLazy()
+    private val _channel = Channel<Event>(Int.MAX_VALUE)
+    val channel = _channel.receiveAsFlow()
 
-    private val sortRelay = BehaviorRelay.create(Unit)
+    fun onCreate() {
+        presenterScope.launchIO {
+            getSourcesWithFavoriteCount.subscribe()
+                .catch { exception ->
+                    logcat(LogPriority.ERROR, exception)
+                    _channel.send(Event.FailedFetchingSourcesWithCount)
+                }
+                .collectLatest { sources ->
+                    state.items = sources
+                    state.isLoading = false
+                }
+        }
 
-    override fun onCreate(savedState: Bundle?) {
-        super.onCreate(savedState)
+        preferences.migrationSortingDirection().changes()
+            .onEach { state.sortingDirection = it }
+            .launchIn(presenterScope)
 
-        db.getFavoriteMangas()
-            .asRxObservable()
-            .combineLatest(sortRelay.observeOn(Schedulers.io())) { sources, _ -> sources }
-            .observeOn(AndroidSchedulers.mainThread())
-            .map { findSourcesWithManga(it) }
-            .subscribeLatestCache(MigrationSourcesController::setSources)
+        preferences.migrationSortingMode().changes()
+            .onEach { state.sortingMode = it }
+            .launchIn(presenterScope)
     }
 
-    fun requestSortUpdate() {
-        sortRelay.call(Unit)
+    fun toggleSortingMode() {
+        val newMode = when (state.sortingMode) {
+            SetMigrateSorting.Mode.ALPHABETICAL -> SetMigrateSorting.Mode.TOTAL
+            SetMigrateSorting.Mode.TOTAL -> SetMigrateSorting.Mode.ALPHABETICAL
+        }
+
+        setMigrateSorting.await(newMode, state.sortingDirection)
     }
 
-    private fun findSourcesWithManga(library: List<Manga>): List<SourceItem> {
-        val header = SelectionHeader()
-        return library
-            .groupBy { it.source }
-            .filterKeys { it != LocalSource.ID }
-            .map {
-                val source = sourceManager.getOrStub(it.key)
-                SourceItem(source, it.value.size, header)
-            }
-            .sortedWith(sortFn())
-            .toList()
+    fun toggleSortingDirection() {
+        val newDirection = when (state.sortingDirection) {
+            SetMigrateSorting.Direction.ASCENDING -> SetMigrateSorting.Direction.DESCENDING
+            SetMigrateSorting.Direction.DESCENDING -> SetMigrateSorting.Direction.ASCENDING
+        }
+
+        setMigrateSorting.await(state.sortingMode, newDirection)
     }
 
-    private fun sortFn(): java.util.Comparator<SourceItem> {
-        val sort by lazy {
-            preferences.migrationSortingMode().get()
-        }
-        val direction by lazy {
-            preferences.migrationSortingDirection().get()
-        }
-
-        val locale = Locale.getDefault()
-        val collator = Collator.getInstance(locale).apply {
-            strength = Collator.PRIMARY
-        }
-        val sortFn: (SourceItem, SourceItem) -> Int = { a, b ->
-            when (sort) {
-                MigrationSourcesController.SortSetting.ALPHABETICAL -> collator.compare(a.source.name.lowercase(locale), b.source.name.lowercase(locale))
-                MigrationSourcesController.SortSetting.TOTAL -> a.mangaCount.compareTo(b.mangaCount)
-            }
-        }
-
-        return when (direction) {
-            MigrationSourcesController.DirectionSetting.ASCENDING -> Comparator(sortFn)
-            MigrationSourcesController.DirectionSetting.DESCENDING -> Collections.reverseOrder(sortFn)
-        }
+    sealed class Event {
+        object FailedFetchingSourcesWithCount : Event()
     }
 }

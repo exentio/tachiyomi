@@ -3,13 +3,11 @@ package eu.kanade.tachiyomi.ui.setting.track
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.view.Gravity
-import android.view.ViewGroup
-import android.widget.FrameLayout
-import android.widget.ProgressBar
+import eu.kanade.presentation.components.LoadingScreen
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.ui.base.activity.BaseActivity
 import eu.kanade.tachiyomi.ui.main.MainActivity
+import eu.kanade.tachiyomi.util.view.setComposeContent
 import uy.kohesive.injekt.injectLazy
 
 abstract class BaseOAuthLoginActivity : BaseActivity() {
@@ -21,15 +19,9 @@ abstract class BaseOAuthLoginActivity : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val view = ProgressBar(this)
-        setContentView(
-            view,
-            FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                Gravity.CENTER,
-            ),
-        )
+        setComposeContent {
+            LoadingScreen()
+        }
 
         handleResult(intent.data)
     }
@@ -37,8 +29,9 @@ abstract class BaseOAuthLoginActivity : BaseActivity() {
     internal fun returnToSettings() {
         finish()
 
-        val intent = Intent(this, MainActivity::class.java)
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        val intent = Intent(this, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        }
         startActivity(intent)
     }
 }

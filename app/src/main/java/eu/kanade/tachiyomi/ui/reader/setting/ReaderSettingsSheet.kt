@@ -13,9 +13,19 @@ class ReaderSettingsSheet(
     private val showColorFilterSettings: Boolean = false,
 ) : TabbedBottomSheetDialog(activity) {
 
-    private val readingModeSettings = ReaderReadingModeSettings(activity)
-    private val generalSettings = ReaderGeneralSettings(activity)
-    private val colorFilterSettings = ReaderColorFilterSettings(activity)
+    private lateinit var readingModeSettings: ReaderReadingModeSettings
+    private lateinit var generalSettings: ReaderGeneralSettings
+    private lateinit var colorFilterSettings: ReaderColorFilterSettings
+
+    init {
+        initSettings()
+    }
+
+    private fun initSettings() {
+        readingModeSettings = ReaderReadingModeSettings(activity)
+        generalSettings = ReaderGeneralSettings(activity)
+        colorFilterSettings = ReaderColorFilterSettings(activity)
+    }
 
     private val backgroundDimAnimator by lazy {
         val sheetBackgroundDim = window?.attributes?.dimAmount ?: 0.25f
@@ -34,27 +44,28 @@ class ReaderSettingsSheet(
         behavior.halfExpandedRatio = 0.25f
 
         val filterTabIndex = getTabViews().indexOf(colorFilterSettings)
-        binding.tabs.addOnTabSelectedListener(object : SimpleTabSelectedListener() {
-            override fun onTabSelected(tab: TabLayout.Tab?) {
-                val isFilterTab = tab?.position == filterTabIndex
+        binding.tabs.addOnTabSelectedListener(
+            object : SimpleTabSelectedListener() {
+                override fun onTabSelected(tab: TabLayout.Tab?) {
+                    val isFilterTab = tab?.position == filterTabIndex
 
-                // Remove dimmed backdrop so color filter changes can be previewed
-                backgroundDimAnimator.run {
-                    if (isFilterTab) {
-                        if (animatedFraction < 1f) {
-                            start()
+                    // Remove dimmed backdrop so color filter changes can be previewed
+                    backgroundDimAnimator.run {
+                        if (isFilterTab) {
+                            if (animatedFraction < 1f) {
+                                start()
+                            }
+                        } else if (animatedFraction > 0f) {
+                            reverse()
                         }
-                    } else if (animatedFraction > 0f) {
-                        reverse()
+                    }
+
+                    // Hide toolbars
+                    if (activity.menuVisible != !isFilterTab) {
+                        activity.setMenuVisibility(!isFilterTab)
                     }
                 }
-
-                // Hide toolbars
-                if (activity.menuVisible != !isFilterTab) {
-                    activity.setMenuVisibility(!isFilterTab)
-                }
-            }
-        },
+            },
         )
 
         if (showColorFilterSettings) {
@@ -73,4 +84,9 @@ class ReaderSettingsSheet(
         R.string.pref_category_general,
         R.string.custom_filter,
     )
+
+    override fun show() {
+        initSettings()
+        super.show()
+    }
 }

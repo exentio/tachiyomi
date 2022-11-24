@@ -24,10 +24,9 @@ import android.util.TypedValue
 import android.view.Display
 import android.view.View
 import android.view.WindowManager
-import android.widget.Toast
+import android.view.inputmethod.InputMethodManager
 import androidx.annotation.AttrRes
 import androidx.annotation.ColorInt
-import androidx.annotation.StringRes
 import androidx.appcompat.view.ContextThemeWrapper
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -38,41 +37,19 @@ import androidx.core.graphics.green
 import androidx.core.graphics.red
 import androidx.core.net.toUri
 import com.hippo.unifile.UniFile
+import eu.kanade.domain.ui.UiPreferences
+import eu.kanade.domain.ui.model.TabletUiMode
+import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.R
-import eu.kanade.tachiyomi.data.preference.PreferenceValues
-import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.ui.base.delegate.ThemingDelegate
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.util.lang.truncateCenter
 import logcat.LogPriority
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.File
+import kotlin.math.max
 import kotlin.math.roundToInt
-
-private const val TABLET_UI_MIN_SCREEN_WIDTH_DP = 720
-
-/**
- * Display a toast in this context.
- *
- * @param resource the text resource.
- * @param duration the duration of the toast. Defaults to short.
- */
-fun Context.toast(@StringRes resource: Int, duration: Int = Toast.LENGTH_SHORT, block: (Toast) -> Unit = {}): Toast {
-    return toast(getString(resource), duration, block)
-}
-
-/**
- * Display a toast in this context.
- *
- * @param text the text to display.
- * @param duration the duration of the toast. Defaults to short.
- */
-fun Context.toast(text: String?, duration: Int = Toast.LENGTH_SHORT, block: (Toast) -> Unit = {}): Toast {
-    return Toast.makeText(this, text.orEmpty(), duration).also {
-        block(it)
-        it.show()
-    }
-}
 
 /**
  * Copies a string to clipboard
@@ -166,6 +143,9 @@ fun Context.hasPermission(permission: String) = ContextCompat.checkSelfPermissio
     }
 }
 
+val getDisplayMaxHeightInPx: Int
+    get() = Resources.getSystem().displayMetrics.let { max(it.heightPixels, it.widthPixels) }
+
 /**
  * Converts to dp.
  */
@@ -203,6 +183,9 @@ val Context.powerManager: PowerManager
     get() = getSystemService()!!
 
 val Context.keyguardManager: KeyguardManager
+    get() = getSystemService()!!
+
+val Context.inputMethodManager: InputMethodManager
     get() = getSystemService()!!
 
 val Context.displayCompat: Display?
@@ -258,8 +241,14 @@ fun Context.openInBrowser(uri: Uri, forceDefaultBrowser: Boolean = false) {
 }
 
 fun Context.defaultBrowserPackageName(): String? {
-    val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("http://"))
-    return packageManager.resolveActivity(browserIntent, PackageManager.MATCH_DEFAULT_ONLY)
+    val browserIntent = Intent(Intent.ACTION_VIEW, "http://".toUri())
+    val resolveInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        packageManager.resolveActivity(browserIntent, PackageManager.ResolveInfoFlags.of(PackageManager.MATCH_DEFAULT_ONLY.toLong()))
+    } else {
+        @Suppress("DEPRECATION")
+        packageManager.resolveActivity(browserIntent, PackageManager.MATCH_DEFAULT_ONLY)
+    }
+    return resolveInfo
         ?.activityInfo?.packageName
         ?.takeUnless { it in DeviceUtil.invalidDefaultBrowsers }
 }
@@ -273,28 +262,46 @@ fun Context.createFileInCacheDir(name: String): File {
     return file
 }
 
-/**
- * We consider anything with a width of >= 720dp as a tablet, i.e. with layouts in layout-sw720dp.
- */
-fun Context.isTablet(): Boolean {
-    return resources.configuration.smallestScreenWidthDp >= TABLET_UI_MIN_SCREEN_WIDTH_DP
+private const val TABLET_UI_REQUIRED_SCREEN_WIDTH_DP = 720
+
+// some tablets have screen width like 711dp = 1600px / 2.25
+private const val TABLET_UI_MIN_SCREEN_WIDTH_PORTRAIT_DP = 700
+
+// make sure icons on the nav rail fit
+private const val TABLET_UI_MIN_SCREEN_WIDTH_LANDSCAPE_DP = 600
+
+fun Context.isTabletUi(): Boolean {
+    return resources.configuration.isTabletUi()
 }
 
+fun Configuration.isTabletUi(): Boolean {
+    return smallestScreenWidthDp >= TABLET_UI_REQUIRED_SCREEN_WIDTH_DP
+}
+
+fun Configuration.isAutoTabletUiAvailable(): Boolean {
+    return smallestScreenWidthDp >= TABLET_UI_MIN_SCREEN_WIDTH_LANDSCAPE_DP
+}
+
+// TODO: move the logic to `isTabletUi()` when main activity is rewritten in Compose
 fun Context.prepareTabletUiContext(): Context {
     val configuration = resources.configuration
-    val expected = when (Injekt.get<PreferencesHelper>().tabletUiMode().get()) {
-        PreferenceValues.TabletUiMode.AUTOMATIC -> isTablet()
-        PreferenceValues.TabletUiMode.ALWAYS -> true
-        PreferenceValues.TabletUiMode.LANDSCAPE -> configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-        PreferenceValues.TabletUiMode.NEVER -> false
+    val expected = when (Injekt.get<UiPreferences>().tabletUiMode().get()) {
+        TabletUiMode.AUTOMATIC ->
+            configuration.smallestScreenWidthDp >= when (configuration.orientation) {
+                Configuration.ORIENTATION_PORTRAIT -> TABLET_UI_MIN_SCREEN_WIDTH_PORTRAIT_DP
+                else -> TABLET_UI_MIN_SCREEN_WIDTH_LANDSCAPE_DP
+            }
+        TabletUiMode.ALWAYS -> true
+        TabletUiMode.LANDSCAPE -> configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        TabletUiMode.NEVER -> false
     }
-    if (configuration.smallestScreenWidthDp >= TABLET_UI_MIN_SCREEN_WIDTH_DP != expected) {
+    if (configuration.isTabletUi() != expected) {
         val overrideConf = Configuration()
         overrideConf.setTo(configuration)
         overrideConf.smallestScreenWidthDp = if (expected) {
-            overrideConf.smallestScreenWidthDp.coerceAtLeast(TABLET_UI_MIN_SCREEN_WIDTH_DP)
+            overrideConf.smallestScreenWidthDp.coerceAtLeast(TABLET_UI_REQUIRED_SCREEN_WIDTH_DP)
         } else {
-            overrideConf.smallestScreenWidthDp.coerceAtMost(TABLET_UI_MIN_SCREEN_WIDTH_DP - 1)
+            overrideConf.smallestScreenWidthDp.coerceAtMost(TABLET_UI_REQUIRED_SCREEN_WIDTH_DP - 1)
         }
         return createConfigurationContext(overrideConf)
     }
@@ -315,8 +322,9 @@ fun Context.isNightMode(): Boolean {
  * https://cs.android.com/androidx/platform/frameworks/support/+/androidx-main:appcompat/appcompat/src/main/java/androidx/appcompat/app/AppCompatDelegateImpl.java;l=348;drc=e28752c96fc3fb4d3354781469a1af3dbded4898
  */
 fun Context.createReaderThemeContext(): Context {
-    val prefs = Injekt.get<PreferencesHelper>()
-    val isDarkBackground = when (prefs.readerTheme().get()) {
+    val preferences = Injekt.get<UiPreferences>()
+    val readerPreferences = Injekt.get<ReaderPreferences>()
+    val isDarkBackground = when (readerPreferences.readerTheme().get()) {
         1, 2 -> true // Black, Gray
         3 -> applicationContext.isNightMode() // Automatic bg uses activity background by default
         else -> false // White
@@ -329,7 +337,7 @@ fun Context.createReaderThemeContext(): Context {
 
         val wrappedContext = ContextThemeWrapper(this, R.style.Theme_Tachiyomi)
         wrappedContext.applyOverrideConfiguration(overrideConf)
-        ThemingDelegate.getThemeResIds(prefs.appTheme().get(), prefs.themeDarkAmoled().get())
+        ThemingDelegate.getThemeResIds(preferences.appTheme().get(), preferences.themeDarkAmoled().get())
             .forEach { wrappedContext.theme.applyStyle(it, true) }
         return wrappedContext
     }
@@ -386,8 +394,8 @@ fun Context.isPackageInstalled(packageName: String): Boolean {
     }
 }
 
-fun Context.getInstallerPackageName(): String? {
-    return try {
+fun Context.isInstalledFromFDroid(): Boolean {
+    val installerPackageName = try {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             packageManager.getInstallSourceInfo(packageName).installingPackageName
         } else {
@@ -397,6 +405,10 @@ fun Context.getInstallerPackageName(): String? {
     } catch (e: Exception) {
         null
     }
+
+    return installerPackageName == "org.fdroid.fdroid" ||
+        // F-Droid builds typically disable the updater
+        (!BuildConfig.INCLUDE_UPDATER && !isDevFlavor)
 }
 
 fun Context.getApplicationIcon(pkgName: String): Drawable? {

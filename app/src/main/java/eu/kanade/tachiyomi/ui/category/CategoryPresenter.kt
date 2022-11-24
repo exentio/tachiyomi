@@ -1,106 +1,100 @@
 package eu.kanade.tachiyomi.ui.category
 
 import android.os.Bundle
-import eu.kanade.tachiyomi.data.database.DatabaseHelper
-import eu.kanade.tachiyomi.data.database.models.Category
+import eu.kanade.domain.category.interactor.CreateCategoryWithName
+import eu.kanade.domain.category.interactor.DeleteCategory
+import eu.kanade.domain.category.interactor.GetCategories
+import eu.kanade.domain.category.interactor.RenameCategory
+import eu.kanade.domain.category.interactor.ReorderCategory
+import eu.kanade.domain.category.model.Category
+import eu.kanade.presentation.category.CategoryState
+import eu.kanade.presentation.category.CategoryStateImpl
 import eu.kanade.tachiyomi.ui.base.presenter.BasePresenter
-import rx.Observable
-import rx.android.schedulers.AndroidSchedulers
+import eu.kanade.tachiyomi.util.lang.launchIO
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.consumeAsFlow
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
-/**
- * Presenter of [CategoryController]. Used to manage the categories of the library.
- */
 class CategoryPresenter(
-    private val db: DatabaseHelper = Injekt.get(),
-) : BasePresenter<CategoryController>() {
+    private val state: CategoryStateImpl = CategoryState() as CategoryStateImpl,
+    private val getCategories: GetCategories = Injekt.get(),
+    private val createCategoryWithName: CreateCategoryWithName = Injekt.get(),
+    private val renameCategory: RenameCategory = Injekt.get(),
+    private val reorderCategory: ReorderCategory = Injekt.get(),
+    private val deleteCategory: DeleteCategory = Injekt.get(),
+) : BasePresenter<CategoryController>(), CategoryState by state {
 
-    /**
-     * List containing categories.
-     */
-    private var categories: List<Category> = emptyList()
+    private val _events: Channel<Event> = Channel(Int.MAX_VALUE)
+    val events = _events.consumeAsFlow()
 
-    /**
-     * Called when the presenter is created.
-     *
-     * @param savedState The saved state of this presenter.
-     */
     override fun onCreate(savedState: Bundle?) {
         super.onCreate(savedState)
-
-        db.getCategories().asRxObservable()
-            .doOnNext { categories = it }
-            .map { it.map(::CategoryItem) }
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribeLatestCache(CategoryController::setCategories)
+        presenterScope.launchIO {
+            getCategories.subscribe()
+                .collectLatest {
+                    state.isLoading = false
+                    state.categories = it.filterNot(Category::isSystemCategory)
+                }
+        }
     }
 
-    /**
-     * Creates and adds a new category to the database.
-     *
-     * @param name The name of the category to create.
-     */
     fun createCategory(name: String) {
-        // Do not allow duplicate categories.
-        if (categoryExists(name)) {
-            Observable.just(Unit).subscribeFirst({ view, _ -> view.onCategoryExistsError() })
-            return
+        presenterScope.launchIO {
+            when (createCategoryWithName.await(name)) {
+                is CreateCategoryWithName.Result.NameAlreadyExistsError -> _events.send(Event.CategoryWithNameAlreadyExists)
+                is CreateCategoryWithName.Result.InternalError -> _events.send(Event.InternalError)
+                else -> {}
+            }
         }
-
-        // Create category.
-        val cat = Category.create(name)
-
-        // Set the new item in the last position.
-        cat.order = categories.map { it.order + 1 }.maxOrNull() ?: 0
-
-        // Insert into database.
-        db.insertCategory(cat).asRxObservable().subscribe()
     }
 
-    /**
-     * Deletes the given categories from the database.
-     *
-     * @param categories The list of categories to delete.
-     */
-    fun deleteCategories(categories: List<Category>) {
-        db.deleteCategories(categories).asRxObservable().subscribe()
-    }
-
-    /**
-     * Reorders the given categories in the database.
-     *
-     * @param categories The list of categories to reorder.
-     */
-    fun reorderCategories(categories: List<Category>) {
-        categories.forEachIndexed { i, category ->
-            category.order = i
+    fun deleteCategory(category: Category) {
+        presenterScope.launchIO {
+            when (deleteCategory.await(category.id)) {
+                is DeleteCategory.Result.InternalError -> _events.send(Event.InternalError)
+                else -> {}
+            }
         }
-
-        db.insertCategories(categories).asRxObservable().subscribe()
     }
 
-    /**
-     * Renames a category.
-     *
-     * @param category The category to rename.
-     * @param name The new name of the category.
-     */
+    fun moveUp(category: Category) {
+        presenterScope.launchIO {
+            when (reorderCategory.await(category, category.order - 1)) {
+                is ReorderCategory.Result.InternalError -> _events.send(Event.InternalError)
+                else -> {}
+            }
+        }
+    }
+
+    fun moveDown(category: Category) {
+        presenterScope.launchIO {
+            when (reorderCategory.await(category, category.order + 1)) {
+                is ReorderCategory.Result.InternalError -> _events.send(Event.InternalError)
+                else -> {}
+            }
+        }
+    }
+
     fun renameCategory(category: Category, name: String) {
-        // Do not allow duplicate categories.
-        if (categoryExists(name)) {
-            Observable.just(Unit).subscribeFirst({ view, _ -> view.onCategoryExistsError() })
-            return
+        presenterScope.launchIO {
+            when (renameCategory.await(category, name)) {
+                RenameCategory.Result.NameAlreadyExistsError -> _events.send(Event.CategoryWithNameAlreadyExists)
+                is RenameCategory.Result.InternalError -> _events.send(Event.InternalError)
+                else -> {}
+            }
         }
-
-        category.name = name
-        db.insertCategory(category).asRxObservable().subscribe()
     }
 
-    /**
-     * Returns true if a category with the given name already exists.
-     */
-    private fun categoryExists(name: String): Boolean {
-        return categories.any { it.name == name }
+    sealed class Dialog {
+        object Create : Dialog()
+        data class Rename(val category: Category) : Dialog()
+        data class Delete(val category: Category) : Dialog()
+    }
+
+    sealed class Event {
+        object CategoryWithNameAlreadyExists : Event()
+        object InternalError : Event()
     }
 }

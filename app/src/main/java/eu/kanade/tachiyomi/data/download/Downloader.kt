@@ -4,15 +4,15 @@ import android.content.Context
 import com.hippo.unifile.UniFile
 import com.jakewharton.rxrelay.BehaviorRelay
 import com.jakewharton.rxrelay.PublishRelay
+import eu.kanade.domain.download.service.DownloadPreferences
+import eu.kanade.domain.manga.model.Manga
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.cache.ChapterCache
 import eu.kanade.tachiyomi.data.database.models.Chapter
-import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.download.model.DownloadQueue
 import eu.kanade.tachiyomi.data.library.LibraryUpdateNotifier
 import eu.kanade.tachiyomi.data.notification.NotificationHandler
-import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.UnmeteredSource
 import eu.kanade.tachiyomi.source.model.Page
@@ -34,7 +34,8 @@ import rx.Observable
 import rx.android.schedulers.AndroidSchedulers
 import rx.schedulers.Schedulers
 import rx.subscriptions.CompositeSubscription
-import uy.kohesive.injekt.injectLazy
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import java.io.BufferedOutputStream
 import java.io.File
 import java.util.zip.CRC32
@@ -59,12 +60,10 @@ class Downloader(
     private val context: Context,
     private val provider: DownloadProvider,
     private val cache: DownloadCache,
-    private val sourceManager: SourceManager,
+    private val sourceManager: SourceManager = Injekt.get(),
+    private val chapterCache: ChapterCache = Injekt.get(),
+    private val downloadPreferences: DownloadPreferences = Injekt.get(),
 ) {
-
-    private val chapterCache: ChapterCache by injectLazy()
-
-    private val preferences: PreferencesHelper by injectLazy()
 
     /**
      * Store for persisting downloads across restarts.
@@ -245,13 +244,17 @@ class Downloader(
      * @param autoStart whether to start the downloader after enqueing the chapters.
      */
     fun queueChapters(manga: Manga, chapters: List<Chapter>, autoStart: Boolean) = launchIO {
+        if (chapters.isEmpty()) {
+            return@launchIO
+        }
+
         val source = sourceManager.get(manga.source) as? HttpSource ?: return@launchIO
         val wasEmpty = queue.isEmpty()
         // Called in background thread, the operation can be slow with SAF.
         val chaptersWithoutDir = async {
             chapters
                 // Filter out those already downloaded.
-                .filter { provider.findChapterDir(it, manga, source) == null }
+                .filter { provider.findChapterDir(it.name, it.scanlator, manga.title, source) == null }
                 // Add chapters to queue from the start.
                 .sortedByDescending { it.source_order }
         }
@@ -273,7 +276,7 @@ class Downloader(
 
             // Start downloader if needed
             if (autoStart && wasEmpty) {
-                val queuedDownloads = queue.filter { it.source !is UnmeteredSource }.count()
+                val queuedDownloads = queue.count { it.source !is UnmeteredSource }
                 val maxDownloadsFromSource = queue
                     .groupBy { it.source }
                     .filterKeys { it !is UnmeteredSource }
@@ -302,7 +305,7 @@ class Downloader(
      * @param download the chapter to be downloaded.
      */
     private fun downloadChapter(download: Download): Observable<Download> = Observable.defer {
-        val mangaDir = provider.getMangaDir(download.manga, download.source)
+        val mangaDir = provider.getMangaDir(download.manga.title, download.source)
 
         val availSpace = DiskUtil.getAvailableStorageSpace(mangaDir)
         if (availSpace != -1L && availSpace < MIN_DISK_SPACE) {
@@ -311,17 +314,20 @@ class Downloader(
             return@defer Observable.just(download)
         }
 
-        val chapterDirname = provider.getChapterDirName(download.chapter)
+        val chapterDirname = provider.getChapterDirName(download.chapter.name, download.chapter.scanlator)
         val tmpDir = mangaDir.createDirectory(chapterDirname + TMP_DIR_SUFFIX)
 
         val pageListObservable = if (download.pages == null) {
             // Pull page list from network and add them to download object
             download.source.fetchPageList(download.chapter)
-                .doOnNext { pages ->
+                .map { pages ->
                     if (pages.isEmpty()) {
                         throw Exception(context.getString(R.string.page_list_empty_error))
                     }
-                    download.pages = pages
+                    // Don't trust index from source
+                    val reIndexedPages = pages.mapIndexed { index, page -> Page(index, page.url, page.imageUrl, page.uri) }
+                    download.pages = reIndexedPages
+                    reIndexedPages
                 }
         } else {
             // Or if the page list already exists, start from the file
@@ -341,8 +347,8 @@ class Downloader(
             // Get all the URLs to the source images, fetch pages if necessary
             .flatMap { download.source.fetchAllImageUrlsFromPageList(it) }
             // Start downloading images, consider we can have downloaded images already
-            // Concurrently do 5 pages at a time
-            .flatMap({ page -> getOrDownloadImage(page, download, tmpDir) }, 5)
+            // Concurrently do 2 pages at a time
+            .flatMap({ page -> getOrDownloadImage(page, download, tmpDir).subscribeOn(Schedulers.io()) }, 2)
             .onBackpressureLatest()
             // Do when page is downloaded.
             .doOnNext { notifier.onProgressChange(download) }
@@ -352,6 +358,7 @@ class Downloader(
             .doOnNext { ensureSuccessfulDownload(download, mangaDir, tmpDir, chapterDirname) }
             // If the page list threw, it will resume here
             .onErrorReturn { error ->
+                logcat(LogPriority.ERROR, error)
                 download.status = Download.State.ERROR
                 notifier.onError(error.message, download.chapter.name, download.manga.title)
                 download
@@ -379,7 +386,7 @@ class Downloader(
         tmpFile?.delete()
 
         // Try to find the image file.
-        val imageFile = tmpDir.listFiles()!!.find { it.name!!.startsWith("$filename.") }
+        val imageFile = tmpDir.listFiles()!!.find { it.name!!.startsWith("$filename.") || it.name!!.contains("${filename}__001") }
 
         // If the image is already downloaded, do nothing. Otherwise download from network
         val pageObservable = when {
@@ -389,8 +396,12 @@ class Downloader(
         }
 
         return pageObservable
-            // When the image is ready, set image path, progress (just in case) and status
+            // When the page is ready, set page path, progress (just in case) and status
             .doOnNext { file ->
+                val success = splitTallImageIfNeeded(page, tmpDir)
+                if (!success) {
+                    notifier.onError(context.getString(R.string.download_notifier_split_failed), download.chapter.name, download.manga.title)
+                }
                 page.uri = file.uri
                 page.progress = 100
                 download.downloadedImages++
@@ -401,6 +412,7 @@ class Downloader(
             .onErrorReturn {
                 page.progress = 0
                 page.status = Page.ERROR
+                notifier.onError(it.message, download.chapter.name, download.manga.title)
                 page
             }
     }
@@ -420,7 +432,7 @@ class Downloader(
             .map { response ->
                 val file = tmpDir.createFile("$filename.tmp")
                 try {
-                    response.body!!.source().saveTo(file.openOutputStream())
+                    response.body.source().saveTo(file.openOutputStream())
                     val extension = getImageExtension(response, file)
                     file.renameTo("$filename.$extension")
                 } catch (e: Exception) {
@@ -465,13 +477,31 @@ class Downloader(
      */
     private fun getImageExtension(response: Response, file: UniFile): String {
         // Read content type if available.
-        val mime = response.body?.contentType()?.let { ct -> "${ct.type}/${ct.subtype}" }
+        val mime = response.body.contentType()?.run { if (type == "image") "image/$subtype" else null }
             // Else guess from the uri.
             ?: context.contentResolver.getType(file.uri)
             // Else read magic numbers.
             ?: ImageUtil.findImageType { file.openInputStream() }?.mime
 
         return ImageUtil.getExtensionFromMimeType(mime)
+    }
+
+    private fun splitTallImageIfNeeded(page: Page, tmpDir: UniFile): Boolean {
+        if (!downloadPreferences.splitTallImages().get()) return true
+
+        val filenamePrefix = String.format("%03d", page.number)
+        val imageFile = tmpDir.listFiles()?.firstOrNull { it.name.orEmpty().startsWith(filenamePrefix) }
+            ?: throw Error(context.getString(R.string.download_notifier_split_page_not_found, page.number))
+
+        // check if the original page was previously splitted before then skip.
+        if (imageFile.name!!.contains("__")) return true
+
+        return try {
+            ImageUtil.splitTallImage(tmpDir, imageFile, filenamePrefix)
+        } catch (e: Exception) {
+            logcat(LogPriority.ERROR, e)
+            false
+        }
     }
 
     /**
@@ -489,17 +519,11 @@ class Downloader(
         dirname: String,
     ) {
         // Ensure that the chapter folder has all the images.
-        val downloadedImages = tmpDir.listFiles().orEmpty().filterNot { it.name!!.endsWith(".tmp") }
+        val downloadedImages = tmpDir.listFiles().orEmpty().filterNot { it.name!!.endsWith(".tmp") || (it.name!!.contains("__") && !it.name!!.contains("__001.jpg")) }
 
         download.status = if (downloadedImages.size == download.pages!!.size) {
-            Download.State.DOWNLOADED
-        } else {
-            Download.State.ERROR
-        }
-
-        // Only rename the directory if it's downloaded.
-        if (download.status == Download.State.DOWNLOADED) {
-            if (preferences.saveChaptersAsCBZ().get()) {
+            // Only rename the directory if it's downloaded.
+            if (downloadPreferences.saveChaptersAsCBZ().get()) {
                 archiveChapter(mangaDir, dirname, tmpDir)
             } else {
                 tmpDir.renameTo(dirname)
@@ -507,6 +531,10 @@ class Downloader(
             cache.addChapter(dirname, mangaDir, download.manga)
 
             DiskUtil.createNoMediaFile(tmpDir, context)
+
+            Download.State.DOWNLOADED
+        } else {
+            Download.State.ERROR
         }
     }
 
@@ -518,7 +546,7 @@ class Downloader(
         dirname: String,
         tmpDir: UniFile,
     ) {
-        val zip = mangaDir.createFile("$dirname.cbz.tmp")
+        val zip = mangaDir.createFile("$dirname.cbz$TMP_DIR_SUFFIX")
         ZipOutputStream(BufferedOutputStream(zip.openOutputStream())).use { zipOut ->
             zipOut.setMethod(ZipEntry.STORED)
 

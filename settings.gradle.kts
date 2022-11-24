@@ -22,6 +22,9 @@ dependencyResolutionManagement {
         create("androidx") {
             from(files("gradle/androidx.versions.toml"))
         }
+        create("compose") {
+            from(files("gradle/compose.versions.toml"))
+        }
     }
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
@@ -33,3 +36,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "Tachiyomi"
 include(":app")
+include(":i18n")
+include(":source-api")
+include(":core")
+include(":macrobenchmark")

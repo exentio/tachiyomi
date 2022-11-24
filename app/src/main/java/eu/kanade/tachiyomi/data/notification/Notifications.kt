@@ -42,6 +42,8 @@ object Notifications {
     const val ID_DOWNLOAD_CHAPTER_COMPLETE = -203
     const val CHANNEL_DOWNLOADER_ERROR = "downloader_error_channel"
     const val ID_DOWNLOAD_CHAPTER_ERROR = -202
+    const val CHANNEL_DOWNLOADER_CACHE = "downloader_cache_renewal"
+    const val ID_DOWNLOAD_CACHE = -204
 
     /**
      * Notification channel and ids used by the library updater.
@@ -79,6 +81,7 @@ object Notifications {
     private const val GROUP_APK_UPDATES = "group_apk_updates"
     const val CHANNEL_APP_UPDATE = "app_apk_update_channel"
     const val ID_APP_UPDATER = 1
+    const val ID_APP_UPDATE_PROMPT = 2
     const val CHANNEL_EXTENSIONS_UPDATE = "ext_apk_update_channel"
     const val ID_UPDATES_TO_EXTS = -401
     const val ID_EXTENSION_INSTALLER = -402
@@ -155,6 +158,11 @@ object Notifications {
                 },
                 buildNotificationChannel(CHANNEL_DOWNLOADER_ERROR, IMPORTANCE_LOW) {
                     setName(context.getString(R.string.channel_errors))
+                    setGroup(GROUP_DOWNLOADER)
+                    setShowBadge(false)
+                },
+                buildNotificationChannel(CHANNEL_DOWNLOADER_CACHE, IMPORTANCE_LOW) {
+                    setName(context.getString(R.string.channel_downloader_cache))
                     setGroup(GROUP_DOWNLOADER)
                     setShowBadge(false)
                 },

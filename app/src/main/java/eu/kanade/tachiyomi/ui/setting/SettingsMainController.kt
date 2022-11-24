@@ -1,117 +1,107 @@
 package eu.kanade.tachiyomi.ui.setting
 
-import android.view.Menu
-import android.view.MenuInflater
-import android.view.MenuItem
-import androidx.appcompat.widget.SearchView
-import androidx.preference.PreferenceScreen
-import eu.kanade.tachiyomi.R
-import eu.kanade.tachiyomi.ui.base.controller.withFadeTransaction
-import eu.kanade.tachiyomi.ui.setting.search.SettingsSearchController
-import eu.kanade.tachiyomi.util.preference.iconRes
-import eu.kanade.tachiyomi.util.preference.iconTint
-import eu.kanade.tachiyomi.util.preference.onClick
-import eu.kanade.tachiyomi.util.preference.preference
-import eu.kanade.tachiyomi.util.preference.titleRes
-import eu.kanade.tachiyomi.util.system.getResourceColor
+import android.os.Bundle
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.with
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.core.os.bundleOf
+import cafe.adriel.voyager.navigator.Navigator
+import cafe.adriel.voyager.transitions.ScreenTransition
+import eu.kanade.presentation.components.TwoPanelBox
+import eu.kanade.presentation.more.settings.screen.AboutScreen
+import eu.kanade.presentation.more.settings.screen.SettingsBackupScreen
+import eu.kanade.presentation.more.settings.screen.SettingsGeneralScreen
+import eu.kanade.presentation.more.settings.screen.SettingsMainScreen
+import eu.kanade.presentation.util.LocalBackPress
+import eu.kanade.presentation.util.LocalRouter
+import eu.kanade.tachiyomi.ui.base.controller.BasicFullComposeController
+import eu.kanade.tachiyomi.util.system.isTabletUi
 
-class SettingsMainController : SettingsController() {
+class SettingsMainController(bundle: Bundle = bundleOf()) : BasicFullComposeController(bundle) {
 
-    override fun setupPreferenceScreen(screen: PreferenceScreen) = screen.apply {
-        titleRes = R.string.label_settings
+    private val toBackupScreen = args.getBoolean(TO_BACKUP_SCREEN)
+    private val toAboutScreen = args.getBoolean(TO_ABOUT_SCREEN)
 
-        val tintColor = context.getResourceColor(R.attr.colorAccent)
+    /**
+     * Mimics [eu.kanade.tachiyomi.ui.base.controller.OneWayFadeChangeHandler]
+     */
+    private val transition = fadeIn(
+        animationSpec = tween(
+            easing = LinearEasing,
+        ),
+    ) with ExitTransition.None
 
-        preference {
-            iconRes = R.drawable.ic_tune_24dp
-            iconTint = tintColor
-            titleRes = R.string.pref_category_general
-            onClick { navigateTo(SettingsGeneralController()) }
-        }
-        preference {
-            iconRes = R.drawable.ic_palette_24dp
-            iconTint = tintColor
-            titleRes = R.string.pref_category_appearance
-            onClick { navigateTo(SettingsAppearanceController()) }
-        }
-        preference {
-            iconRes = R.drawable.ic_library_outline_24dp
-            iconTint = tintColor
-            titleRes = R.string.pref_category_library
-            onClick { navigateTo(SettingsLibraryController()) }
-        }
-        preference {
-            iconRes = R.drawable.ic_chrome_reader_mode_24dp
-            iconTint = tintColor
-            titleRes = R.string.pref_category_reader
-            onClick { navigateTo(SettingsReaderController()) }
-        }
-        preference {
-            iconRes = R.drawable.ic_get_app_24dp
-            iconTint = tintColor
-            titleRes = R.string.pref_category_downloads
-            onClick { navigateTo(SettingsDownloadController()) }
-        }
-        preference {
-            iconRes = R.drawable.ic_sync_24dp
-            iconTint = tintColor
-            titleRes = R.string.pref_category_tracking
-            onClick { navigateTo(SettingsTrackingController()) }
-        }
-        preference {
-            iconRes = R.drawable.ic_browse_outline_24dp
-            iconTint = tintColor
-            titleRes = R.string.browse
-            onClick { navigateTo(SettingsBrowseController()) }
-        }
-        preference {
-            iconRes = R.drawable.ic_settings_backup_restore_24dp
-            iconTint = tintColor
-            titleRes = R.string.label_backup
-            onClick { navigateTo(SettingsBackupController()) }
-        }
-        preference {
-            iconRes = R.drawable.ic_security_24dp
-            iconTint = tintColor
-            titleRes = R.string.pref_category_security
-            onClick { navigateTo(SettingsSecurityController()) }
-        }
-        preference {
-            iconRes = R.drawable.ic_code_24dp
-            iconTint = tintColor
-            titleRes = R.string.pref_category_advanced
-            onClick { navigateTo(SettingsAdvancedController()) }
+    @Composable
+    override fun ComposeContent() {
+        CompositionLocalProvider(LocalRouter provides router) {
+            val configuration = LocalConfiguration.current
+            val isTabletUi = remember { configuration.isTabletUi() } // won't survive config change
+            if (!isTabletUi) {
+                Navigator(
+                    screen = if (toBackupScreen) {
+                        SettingsBackupScreen()
+                    } else if (toAboutScreen) {
+                        AboutScreen()
+                    } else {
+                        SettingsMainScreen
+                    },
+                    content = {
+                        CompositionLocalProvider(LocalBackPress provides this::back) {
+                            ScreenTransition(
+                                navigator = it,
+                                transition = { transition },
+                            )
+                        }
+                    },
+                )
+            } else {
+                Navigator(
+                    screen = if (toBackupScreen) {
+                        SettingsBackupScreen()
+                    } else if (toAboutScreen) {
+                        AboutScreen()
+                    } else {
+                        SettingsGeneralScreen()
+                    },
+                ) {
+                    TwoPanelBox(
+                        startContent = {
+                            CompositionLocalProvider(LocalBackPress provides this@SettingsMainController::back) {
+                                SettingsMainScreen.Content(twoPane = true)
+                            }
+                        },
+                        endContent = {
+                            ScreenTransition(
+                                navigator = it,
+                                transition = { transition },
+                            )
+                        },
+                    )
+                }
+            }
         }
     }
 
-    private fun navigateTo(controller: SettingsController) {
-        router.pushController(controller.withFadeTransaction())
+    private fun back() {
+        activity?.onBackPressed()
     }
 
-    override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
-        // Inflate menu
-        inflater.inflate(R.menu.settings_main, menu)
+    companion object {
+        fun toBackupScreen(): SettingsMainController {
+            return SettingsMainController(bundleOf(TO_BACKUP_SCREEN to true))
+        }
 
-        // Initialize search option.
-        val searchItem = menu.findItem(R.id.action_search)
-        val searchView = searchItem.actionView as SearchView
-        searchView.maxWidth = Int.MAX_VALUE
-
-        // Change hint to show global search.
-        searchView.queryHint = applicationContext?.getString(R.string.action_search_settings)
-
-        searchItem.setOnActionExpandListener(
-            object : MenuItem.OnActionExpandListener {
-                override fun onMenuItemActionExpand(item: MenuItem?): Boolean {
-                    preferences.lastSearchQuerySearchSettings().set("") // reset saved search query
-                    router.pushController(SettingsSearchController().withFadeTransaction())
-                    return true
-                }
-
-                override fun onMenuItemActionCollapse(item: MenuItem?): Boolean {
-                    return true
-                }
-            },
-        )
+        fun toAboutScreen(): SettingsMainController {
+            return SettingsMainController(bundleOf(TO_ABOUT_SCREEN to true))
+        }
     }
 }
+
+private const val TO_BACKUP_SCREEN = "to_backup_screen"
+private const val TO_ABOUT_SCREEN = "to_about_screen"

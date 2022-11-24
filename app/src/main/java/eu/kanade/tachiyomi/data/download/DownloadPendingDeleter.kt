@@ -2,8 +2,8 @@ package eu.kanade.tachiyomi.data.download
 
 import android.content.Context
 import androidx.core.content.edit
+import eu.kanade.domain.manga.model.Manga
 import eu.kanade.tachiyomi.data.database.models.Chapter
-import eu.kanade.tachiyomi.data.database.models.Manga
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -49,7 +49,7 @@ class DownloadPendingDeleter(context: Context) {
             // Last entry matches the manga, reuse it to avoid decoding json from preferences
             lastEntry.copy(chapters = newChapters)
         } else {
-            val existingEntry = preferences.getString(manga.id!!.toString(), null)
+            val existingEntry = preferences.getString(manga.id.toString(), null)
             if (existingEntry != null) {
                 // Existing entry found on preferences, decode json and add the new chapter
                 val savedEntry = json.decodeFromString<Entry>(existingEntry)
@@ -155,7 +155,7 @@ class DownloadPendingDeleter(context: Context) {
      * Returns a manga entry from a manga model.
      */
     private fun Manga.toEntry(): MangaEntry {
-        return MangaEntry(id!!, url, title, source)
+        return MangaEntry(id, url, title, source)
     }
 
     /**
@@ -169,9 +169,12 @@ class DownloadPendingDeleter(context: Context) {
      * Returns a manga model from a manga entry.
      */
     private fun MangaEntry.toModel(): Manga {
-        return Manga.create(url, title, source).also {
-            it.id = id
-        }
+        return Manga.create().copy(
+            url = url,
+            title = title,
+            source = source,
+            id = id,
+        )
     }
 
     /**

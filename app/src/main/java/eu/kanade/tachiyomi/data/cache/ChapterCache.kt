@@ -3,7 +3,7 @@ package eu.kanade.tachiyomi.data.cache
 import android.content.Context
 import android.text.format.Formatter
 import com.jakewharton.disklrucache.DiskLruCache
-import eu.kanade.tachiyomi.data.database.models.Chapter
+import eu.kanade.domain.chapter.model.Chapter
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.util.storage.DiskUtil
 import eu.kanade.tachiyomi.util.storage.saveTo
@@ -164,12 +164,12 @@ class ChapterCache(private val context: Context) {
             editor = diskCache.edit(key) ?: throw IOException("Unable to edit key")
 
             // Get OutputStream and write image with Okio.
-            response.body!!.source().saveTo(editor.newOutputStream(0))
+            response.body.source().saveTo(editor.newOutputStream(0))
 
             diskCache.flush()
             editor.commit()
         } finally {
-            response.body?.close()
+            response.body.close()
             editor?.abortUnlessCommitted()
         }
     }
@@ -207,6 +207,6 @@ class ChapterCache(private val context: Context) {
     }
 
     private fun getKey(chapter: Chapter): String {
-        return "${chapter.manga_id}${chapter.url}"
+        return "${chapter.mangaId}${chapter.url}"
     }
 }

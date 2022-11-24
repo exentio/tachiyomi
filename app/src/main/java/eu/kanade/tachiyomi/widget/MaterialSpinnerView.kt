@@ -11,10 +11,12 @@ import androidx.annotation.ArrayRes
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.appcompat.view.menu.MenuBuilder
 import androidx.appcompat.widget.PopupMenu
+import androidx.core.content.withStyledAttributes
 import androidx.core.view.forEach
 import androidx.core.view.get
-import com.fredporciuncula.flow.preferences.Preference
+import androidx.core.view.size
 import eu.kanade.tachiyomi.R
+import eu.kanade.tachiyomi.core.preference.Preference
 import eu.kanade.tachiyomi.databinding.PrefSpinnerBinding
 import eu.kanade.tachiyomi.util.system.getResourceColor
 
@@ -51,25 +53,27 @@ class MaterialSpinnerView @JvmOverloads constructor(context: Context, attrs: Att
     init {
         addView(binding.root)
 
-        val attr = context.obtainStyledAttributes(attrs, R.styleable.MaterialSpinnerView)
+        context.withStyledAttributes(set = attrs, attrs = R.styleable.MaterialSpinnerView) {
+            val title = getString(R.styleable.MaterialSpinnerView_title).orEmpty()
+            binding.title.text = title
 
-        val title = attr.getString(R.styleable.MaterialSpinnerView_title).orEmpty()
-        binding.title.text = title
-
-        val entries = (attr.getTextArray(R.styleable.MaterialSpinnerView_android_entries) ?: emptyArray()).map { it.toString() }
-        this.entries = entries
-        binding.details.text = entries.firstOrNull().orEmpty()
-
-        attr.recycle()
+            val viewEntries = (
+                getTextArray(R.styleable.MaterialSpinnerView_android_entries)
+                    ?: emptyArray()
+                ).map { it.toString() }
+            entries = viewEntries
+            binding.details.text = viewEntries.firstOrNull().orEmpty()
+        }
     }
 
     fun setSelection(selection: Int) {
-        popup?.menu?.get(selectedPosition)?.let {
-            it.icon = emptyIcon
-            it.title = entries[selectedPosition]
+        if (selectedPosition < (popup?.menu?.size ?: 0)) {
+            popup?.menu?.getItem(selectedPosition)?.let {
+                it.icon = emptyIcon
+            }
         }
         selectedPosition = selection
-        popup?.menu?.get(selectedPosition)?.let {
+        popup?.menu?.getItem(selectedPosition)?.let {
             it.icon = checkmarkIcon
         }
         binding.details.text = entries.getOrNull(selection).orEmpty()
@@ -152,9 +156,7 @@ class MaterialSpinnerView @JvmOverloads constructor(context: Context, attrs: Att
         popup.menu.forEach {
             it.icon = emptyIcon
         }
-        popup.menu.getItem(selectedPosition)?.let {
-            it.icon = checkmarkIcon
-        }
+        popup.menu[selectedPosition].icon = checkmarkIcon
         popup.setOnMenuItemClickListener { menuItem ->
             val pos = menuClicked(menuItem)
             onItemClick(pos)

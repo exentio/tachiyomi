@@ -1,11 +1,14 @@
 package eu.kanade.tachiyomi.ui.reader.loader
 
 import android.content.Context
+import com.github.junrar.exception.UnsupportedRarV5Exception
+import eu.kanade.domain.manga.model.Manga
 import eu.kanade.tachiyomi.R
-import eu.kanade.tachiyomi.data.database.models.Manga
 import eu.kanade.tachiyomi.data.download.DownloadManager
+import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.source.LocalSource
 import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.util.system.logcat
@@ -20,6 +23,7 @@ import rx.schedulers.Schedulers
 class ChapterLoader(
     private val context: Context,
     private val downloadManager: DownloadManager,
+    private val downloadProvider: DownloadProvider,
     private val manga: Manga,
     private val source: Source,
 ) {
@@ -75,18 +79,24 @@ class ChapterLoader(
      * Returns the page loader to use for this [chapter].
      */
     private fun getPageLoader(chapter: ReaderChapter): PageLoader {
-        val isDownloaded = downloadManager.isChapterDownloaded(chapter.chapter, manga, true)
+        val dbChapter = chapter.chapter
+        val isDownloaded = downloadManager.isChapterDownloaded(dbChapter.name, dbChapter.scanlator, manga.title, manga.source, skipCache = true)
         return when {
-            isDownloaded -> DownloadPageLoader(chapter, manga, source, downloadManager)
+            isDownloaded -> DownloadPageLoader(chapter, manga, source, downloadManager, downloadProvider)
             source is HttpSource -> HttpPageLoader(chapter, source)
             source is LocalSource -> source.getFormat(chapter.chapter).let { format ->
                 when (format) {
                     is LocalSource.Format.Directory -> DirectoryPageLoader(format.file)
                     is LocalSource.Format.Zip -> ZipPageLoader(format.file)
-                    is LocalSource.Format.Rar -> RarPageLoader(format.file)
+                    is LocalSource.Format.Rar -> try {
+                        RarPageLoader(format.file)
+                    } catch (e: UnsupportedRarV5Exception) {
+                        error(context.getString(R.string.loader_rar5_error))
+                    }
                     is LocalSource.Format.Epub -> EpubPageLoader(format.file)
                 }
             }
+            source is SourceManager.StubSource -> throw source.getSourceNotInstalledException()
             else -> error(context.getString(R.string.loader_not_implemented_error))
         }
     }

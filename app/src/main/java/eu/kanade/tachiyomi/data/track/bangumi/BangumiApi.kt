@@ -18,6 +18,7 @@ import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.long
 import okhttp3.CacheControl
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
@@ -79,7 +80,7 @@ class BangumiApi(private val client: OkHttpClient, interceptor: BangumiIntercept
             authClient.newCall(GET(url.toString()))
                 .await()
                 .use {
-                    var responseBody = it.body?.string().orEmpty()
+                    var responseBody = it.body.string()
                     if (responseBody.isEmpty()) {
                         throw Exception("Null Response")
                     }
@@ -106,7 +107,7 @@ class BangumiApi(private val client: OkHttpClient, interceptor: BangumiIntercept
             0
         }
         return TrackSearch.create(TrackManager.BANGUMI).apply {
-            media_id = obj["id"]!!.jsonPrimitive.int
+            media_id = obj["id"]!!.jsonPrimitive.long
             title = obj["name_cn"]!!.jsonPrimitive.content
             cover_url = coverUrl
             summary = obj["name"]!!.jsonPrimitive.content
@@ -134,8 +135,8 @@ class BangumiApi(private val client: OkHttpClient, interceptor: BangumiIntercept
                 .build()
 
             // TODO: get user readed chapter here
-            var response = authClient.newCall(requestUserRead).await()
-            var responseBody = response.body?.string().orEmpty()
+            val response = authClient.newCall(requestUserRead).await()
+            val responseBody = response.body.string()
             if (responseBody.isEmpty()) {
                 throw Exception("Null Response")
             }
@@ -181,10 +182,6 @@ class BangumiApi(private val client: OkHttpClient, interceptor: BangumiIntercept
 
         private const val redirectUrl = "tachiyomi://bangumi-auth"
         private const val baseMangaUrl = "$apiUrl/mangas"
-
-        fun mangaUrl(remoteId: Int): String {
-            return "$baseMangaUrl/$remoteId"
-        }
 
         fun authUrl(): Uri =
             loginUrl.toUri().buildUpon()
