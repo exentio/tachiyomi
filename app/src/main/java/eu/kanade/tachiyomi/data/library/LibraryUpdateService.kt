@@ -6,22 +6,16 @@ import android.content.Intent
 import android.os.IBinder
 import android.os.PowerManager
 import androidx.core.content.ContextCompat
-import eu.kanade.data.chapter.NoChaptersException
-import eu.kanade.domain.category.interactor.GetCategories
-import eu.kanade.domain.category.model.Category
 import eu.kanade.domain.chapter.interactor.GetChapterByMangaId
 import eu.kanade.domain.chapter.interactor.SyncChaptersWithSource
 import eu.kanade.domain.chapter.interactor.SyncChaptersWithTrackServiceTwoWay
-import eu.kanade.domain.chapter.model.Chapter
-import eu.kanade.domain.chapter.model.toDbChapter
 import eu.kanade.domain.download.service.DownloadPreferences
-import eu.kanade.domain.library.model.LibraryManga
 import eu.kanade.domain.library.service.LibraryPreferences
 import eu.kanade.domain.manga.interactor.GetLibraryManga
 import eu.kanade.domain.manga.interactor.GetManga
 import eu.kanade.domain.manga.interactor.UpdateManga
-import eu.kanade.domain.manga.model.Manga
-import eu.kanade.domain.manga.model.toMangaUpdate
+import eu.kanade.domain.manga.model.copyFrom
+import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.domain.track.interactor.GetTracks
 import eu.kanade.domain.track.interactor.InsertTrack
 import eu.kanade.domain.track.model.toDbTrack
@@ -42,7 +36,6 @@ import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.UnmeteredSource
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.UpdateStrategy
-import eu.kanade.tachiyomi.util.lang.withIOContext
 import eu.kanade.tachiyomi.util.prepUpdateCover
 import eu.kanade.tachiyomi.util.shouldDownloadNewChapters
 import eu.kanade.tachiyomi.util.storage.getUriCompat
@@ -50,7 +43,6 @@ import eu.kanade.tachiyomi.util.system.acquireWakeLock
 import eu.kanade.tachiyomi.util.system.createFileInCacheDir
 import eu.kanade.tachiyomi.util.system.getSerializableExtraCompat
 import eu.kanade.tachiyomi.util.system.isServiceRunning
-import eu.kanade.tachiyomi.util.system.logcat
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -65,6 +57,16 @@ import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import logcat.LogPriority
+import tachiyomi.core.preference.getAndSet
+import tachiyomi.core.util.lang.withIOContext
+import tachiyomi.core.util.system.logcat
+import tachiyomi.domain.category.interactor.GetCategories
+import tachiyomi.domain.category.model.Category
+import tachiyomi.domain.chapter.model.Chapter
+import tachiyomi.domain.chapter.model.NoChaptersException
+import tachiyomi.domain.library.model.LibraryManga
+import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.manga.model.toMangaUpdate
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.File
@@ -101,7 +103,7 @@ class LibraryUpdateService(
 
     private lateinit var wakeLock: PowerManager.WakeLock
     private lateinit var notifier: LibraryUpdateNotifier
-    private var ioScope: CoroutineScope? = null
+    private var scope: CoroutineScope? = null
 
     private var mangaToUpdate: List<LibraryManga> = mutableListOf()
     private var updateJob: Job? = null
@@ -175,8 +177,6 @@ class LibraryUpdateService(
      * the wake lock.
      */
     override fun onCreate() {
-        super.onCreate()
-
         notifier = LibraryUpdateNotifier(this)
         wakeLock = acquireWakeLock(javaClass.name)
 
@@ -189,14 +189,13 @@ class LibraryUpdateService(
      */
     override fun onDestroy() {
         updateJob?.cancel()
-        ioScope?.cancel()
+        scope?.cancel()
         if (wakeLock.isHeld) {
             wakeLock.release()
         }
         if (instance == this) {
             instance = null
         }
-        super.onDestroy()
     }
 
     /**
@@ -221,7 +220,7 @@ class LibraryUpdateService(
 
         // Unsubscribe from any previous subscription if needed
         updateJob?.cancel()
-        ioScope?.cancel()
+        scope?.cancel()
 
         // If this is a chapter update; set the last update time to now
         if (target == Target.CHAPTERS) {
@@ -237,8 +236,8 @@ class LibraryUpdateService(
             logcat(LogPriority.ERROR, exception)
             stopSelf(startId)
         }
-        ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-        updateJob = ioScope?.launch(handler) {
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        updateJob = scope?.launch(handler) {
             when (target) {
                 Target.CHAPTERS -> updateChapterList()
                 Target.COVERS -> updateCovers()
@@ -313,7 +312,6 @@ class LibraryUpdateService(
         val failedUpdates = CopyOnWriteArrayList<Pair<Manga, String?>>()
         val hasDownloads = AtomicBoolean(false)
         val loggedServices by lazy { trackManager.services.filter { it.isLogged } }
-        val currentUnreadUpdatesCount = libraryPreferences.unreadUpdatesCount().get()
         val restrictions = libraryPreferences.libraryUpdateMangaRestriction().get()
 
         withIOContext {
@@ -363,6 +361,8 @@ class LibraryUpdateService(
                                                         hasDownloads.set(true)
                                                     }
 
+                                                    libraryPreferences.newUpdatesCount().getAndSet { it + newChapters.size }
+
                                                     // Convert to the manga that contains new chapters
                                                     newUpdates.add(manga to newChapters.toTypedArray())
                                                 }
@@ -393,8 +393,6 @@ class LibraryUpdateService(
 
         if (newUpdates.isNotEmpty()) {
             notifier.showUpdateNotifications(newUpdates)
-            val newChapterCount = newUpdates.sumOf { it.second.size }
-            libraryPreferences.unreadUpdatesCount().set(currentUnreadUpdatesCount + newChapterCount)
             if (hasDownloads.get()) {
                 DownloadService.start(this)
             }
@@ -415,7 +413,7 @@ class LibraryUpdateService(
     private fun downloadChapters(manga: Manga, chapters: List<Chapter>) {
         // We don't want to start downloading while the library is updating, because websites
         // may don't like it and they could ban the user.
-        downloadManager.downloadChapters(manga, chapters.map { it.toDbChapter() }, false)
+        downloadManager.downloadChapters(manga, chapters, false)
     }
 
     /**

@@ -7,24 +7,14 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import com.squareup.sqldelight.android.AndroidSqliteDriver
 import com.squareup.sqldelight.db.SqlDriver
-import data.History
-import data.Mangas
-import eu.kanade.data.AndroidDatabaseHandler
-import eu.kanade.data.DatabaseHandler
-import eu.kanade.data.dateAdapter
-import eu.kanade.data.listOfStringsAdapter
-import eu.kanade.data.updateStrategyAdapter
 import eu.kanade.domain.backup.service.BackupPreferences
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.download.service.DownloadPreferences
 import eu.kanade.domain.library.service.LibraryPreferences
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.domain.track.service.TrackPreferences
+import eu.kanade.domain.track.store.DelayedTrackingStore
 import eu.kanade.domain.ui.UiPreferences
-import eu.kanade.tachiyomi.core.preference.AndroidPreferenceStore
-import eu.kanade.tachiyomi.core.preference.PreferenceStore
-import eu.kanade.tachiyomi.core.provider.AndroidBackupFolderProvider
-import eu.kanade.tachiyomi.core.provider.AndroidDownloadFolderProvider
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.data.cache.ChapterCache
 import eu.kanade.tachiyomi.data.cache.CoverCache
@@ -33,7 +23,6 @@ import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.data.saver.ImageSaver
 import eu.kanade.tachiyomi.data.track.TrackManager
-import eu.kanade.tachiyomi.data.track.job.DelayedTrackingStore
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.network.JavaScriptEngine
 import eu.kanade.tachiyomi.network.NetworkHelper
@@ -43,8 +32,22 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.util.system.isDevFlavor
 import io.requery.android.database.sqlite.RequerySQLiteOpenHelperFactory
 import kotlinx.serialization.json.Json
+import nl.adaptivity.xmlutil.XmlDeclMode
+import nl.adaptivity.xmlutil.core.XmlVersion
 import nl.adaptivity.xmlutil.serialization.UnknownChildHandler
 import nl.adaptivity.xmlutil.serialization.XML
+import tachiyomi.core.preference.AndroidPreferenceStore
+import tachiyomi.core.preference.PreferenceStore
+import tachiyomi.core.provider.AndroidBackupFolderProvider
+import tachiyomi.core.provider.AndroidDownloadFolderProvider
+import tachiyomi.data.AndroidDatabaseHandler
+import tachiyomi.data.Database
+import tachiyomi.data.DatabaseHandler
+import tachiyomi.data.History
+import tachiyomi.data.Mangas
+import tachiyomi.data.dateAdapter
+import tachiyomi.data.listOfStringsAdapter
+import tachiyomi.data.updateStrategyAdapter
 import uy.kohesive.injekt.api.InjektModule
 import uy.kohesive.injekt.api.InjektRegistrar
 import uy.kohesive.injekt.api.addSingleton
@@ -106,6 +109,9 @@ class AppModule(val app: Application) : InjektModule {
             XML {
                 unknownChildHandler = UnknownChildHandler { _, _, _, _, _ -> emptyList() }
                 autoPolymorphic = true
+                xmlDeclMode = XmlDeclMode.Charset
+                indent = 4
+                xmlVersion = XmlVersion.XML10
             }
         }
 

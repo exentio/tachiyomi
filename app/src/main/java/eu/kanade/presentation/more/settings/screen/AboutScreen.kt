@@ -19,32 +19,29 @@ import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import com.bluelinelabs.conductor.Router
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.LinkIcon
 import eu.kanade.presentation.components.Scaffold
 import eu.kanade.presentation.components.ScrollbarLazyColumn
 import eu.kanade.presentation.more.LogoHeader
-import eu.kanade.presentation.more.about.LicensesScreen
 import eu.kanade.presentation.more.settings.widget.TextPreferenceWidget
 import eu.kanade.presentation.util.LocalBackPress
-import eu.kanade.presentation.util.LocalRouter
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.updater.AppUpdateChecker
 import eu.kanade.tachiyomi.data.updater.AppUpdateResult
 import eu.kanade.tachiyomi.data.updater.RELEASE_URL
-import eu.kanade.tachiyomi.ui.more.NewUpdateDialogController
+import eu.kanade.tachiyomi.ui.more.NewUpdateScreen
 import eu.kanade.tachiyomi.util.CrashLogUtil
 import eu.kanade.tachiyomi.util.lang.toDateTimestampString
-import eu.kanade.tachiyomi.util.lang.withIOContext
-import eu.kanade.tachiyomi.util.lang.withUIContext
 import eu.kanade.tachiyomi.util.system.copyToClipboard
-import eu.kanade.tachiyomi.util.system.logcat
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.launch
 import logcat.LogPriority
+import tachiyomi.core.util.lang.withIOContext
+import tachiyomi.core.util.lang.withUIContext
+import tachiyomi.core.util.system.logcat
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.text.DateFormat
@@ -52,7 +49,7 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
 
-class AboutScreen : Screen {
+object AboutScreen : Screen {
 
     @Composable
     override fun Content() {
@@ -61,7 +58,6 @@ class AboutScreen : Screen {
         val uriHandler = LocalUriHandler.current
         val handleBack = LocalBackPress.current
         val navigator = LocalNavigator.currentOrThrow
-        val router = LocalRouter.currentOrThrow
 
         Scaffold(
             topBar = { scrollBehavior ->
@@ -96,7 +92,15 @@ class AboutScreen : Screen {
                             title = stringResource(R.string.check_for_updates),
                             onPreferenceClick = {
                                 scope.launch {
-                                    checkVersion(context, router)
+                                    checkVersion(context) { result ->
+                                        val updateScreen = NewUpdateScreen(
+                                            versionName = result.release.version,
+                                            changelogInfo = result.release.info,
+                                            releaseLink = result.release.releaseLink,
+                                            downloadLink = result.release.getDownloadLink(),
+                                        )
+                                        navigator.push(updateScreen)
+                                    }
                                 }
                             },
                         )
@@ -178,14 +182,14 @@ class AboutScreen : Screen {
     /**
      * Checks version and shows a user prompt if an update is available.
      */
-    private suspend fun checkVersion(context: Context, router: Router) {
+    private suspend fun checkVersion(context: Context, onAvailableUpdate: (AppUpdateResult.NewUpdate) -> Unit) {
         val updateChecker = AppUpdateChecker()
         withUIContext {
             context.toast(R.string.update_check_look_for_updates)
             try {
                 when (val result = withIOContext { updateChecker.checkForUpdate(context, isUserPrompt = true) }) {
                     is AppUpdateResult.NewUpdate -> {
-                        NewUpdateDialogController(result).showDialog(router)
+                        onAvailableUpdate(result)
                     }
                     is AppUpdateResult.NoNewUpdate -> {
                         context.toast(R.string.update_check_no_new_updates)
@@ -199,56 +203,54 @@ class AboutScreen : Screen {
         }
     }
 
-    companion object {
-        fun getVersionName(withBuildDate: Boolean): String {
-            return when {
-                BuildConfig.DEBUG -> {
-                    "Debug ${BuildConfig.COMMIT_SHA}".let {
-                        if (withBuildDate) {
-                            "$it (${getFormattedBuildTime()})"
-                        } else {
-                            it
-                        }
+    fun getVersionName(withBuildDate: Boolean): String {
+        return when {
+            BuildConfig.DEBUG -> {
+                "Debug ${BuildConfig.COMMIT_SHA}".let {
+                    if (withBuildDate) {
+                        "$it (${getFormattedBuildTime()})"
+                    } else {
+                        it
                     }
                 }
-                BuildConfig.PREVIEW -> {
-                    "Preview r${BuildConfig.COMMIT_COUNT}".let {
-                        if (withBuildDate) {
-                            "$it (${BuildConfig.COMMIT_SHA}, ${getFormattedBuildTime()})"
-                        } else {
-                            "$it (${BuildConfig.COMMIT_SHA})"
-                        }
+            }
+            BuildConfig.PREVIEW -> {
+                "Preview r${BuildConfig.COMMIT_COUNT}".let {
+                    if (withBuildDate) {
+                        "$it (${BuildConfig.COMMIT_SHA}, ${getFormattedBuildTime()})"
+                    } else {
+                        "$it (${BuildConfig.COMMIT_SHA})"
                     }
                 }
-                else -> {
-                    "Stable ${BuildConfig.VERSION_NAME}".let {
-                        if (withBuildDate) {
-                            "$it (${getFormattedBuildTime()})"
-                        } else {
-                            it
-                        }
+            }
+            else -> {
+                "Stable ${BuildConfig.VERSION_NAME}".let {
+                    if (withBuildDate) {
+                        "$it (${getFormattedBuildTime()})"
+                    } else {
+                        it
                     }
                 }
             }
         }
+    }
 
-        private fun getFormattedBuildTime(): String {
-            return try {
-                val inputDf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'", Locale.US)
-                inputDf.timeZone = TimeZone.getTimeZone("UTC")
-                val buildTime = inputDf.parse(BuildConfig.BUILD_TIME)
+    private fun getFormattedBuildTime(): String {
+        return try {
+            val inputDf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'", Locale.US)
+            inputDf.timeZone = TimeZone.getTimeZone("UTC")
+            val buildTime = inputDf.parse(BuildConfig.BUILD_TIME)
 
-                val outputDf = DateFormat.getDateTimeInstance(
-                    DateFormat.MEDIUM,
-                    DateFormat.SHORT,
-                    Locale.getDefault(),
-                )
-                outputDf.timeZone = TimeZone.getDefault()
+            val outputDf = DateFormat.getDateTimeInstance(
+                DateFormat.MEDIUM,
+                DateFormat.SHORT,
+                Locale.getDefault(),
+            )
+            outputDf.timeZone = TimeZone.getDefault()
 
-                buildTime!!.toDateTimestampString(UiPreferences.dateFormat(Injekt.get<UiPreferences>().dateFormat().get()))
-            } catch (e: Exception) {
-                BuildConfig.BUILD_TIME
-            }
+            buildTime!!.toDateTimestampString(UiPreferences.dateFormat(Injekt.get<UiPreferences>().dateFormat().get()))
+        } catch (e: Exception) {
+            BuildConfig.BUILD_TIME
         }
     }
 }

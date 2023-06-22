@@ -1,8 +1,6 @@
 package eu.kanade.tachiyomi.util.system
 
 import android.app.ActivityManager
-import android.app.KeyguardManager
-import android.app.Notification
 import android.app.NotificationManager
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -24,11 +22,9 @@ import android.util.TypedValue
 import android.view.Display
 import android.view.View
 import android.view.WindowManager
-import android.view.inputmethod.InputMethodManager
 import androidx.annotation.AttrRes
 import androidx.annotation.ColorInt
 import androidx.appcompat.view.ContextThemeWrapper
-import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
 import androidx.core.graphics.alpha
@@ -45,6 +41,8 @@ import eu.kanade.tachiyomi.ui.base.delegate.ThemingDelegate
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.util.lang.truncateCenter
 import logcat.LogPriority
+import rikka.sui.Sui
+import tachiyomi.core.util.system.logcat
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.File
@@ -73,34 +71,6 @@ fun Context.copyToClipboard(label: String, content: String) {
         logcat(LogPriority.ERROR, e)
         toast(R.string.clipboard_copy_error)
     }
-}
-
-/**
- * Helper method to create a notification builder.
- *
- * @param id the channel id.
- * @param block the function that will execute inside the builder.
- * @return a notification to be displayed or updated.
- */
-fun Context.notificationBuilder(channelId: String, block: (NotificationCompat.Builder.() -> Unit)? = null): NotificationCompat.Builder {
-    val builder = NotificationCompat.Builder(this, channelId)
-        .setColor(getColor(R.color.accent_blue))
-    if (block != null) {
-        builder.block()
-    }
-    return builder
-}
-
-/**
- * Helper method to create a notification.
- *
- * @param id the channel id.
- * @param block the function that will execute inside the builder.
- * @return a notification to be displayed or updated.
- */
-fun Context.notification(channelId: String, block: (NotificationCompat.Builder.() -> Unit)?): Notification {
-    val builder = notificationBuilder(channelId, block)
-    return builder.build()
 }
 
 /**
@@ -147,18 +117,6 @@ val getDisplayMaxHeightInPx: Int
     get() = Resources.getSystem().displayMetrics.let { max(it.heightPixels, it.widthPixels) }
 
 /**
- * Converts to dp.
- */
-val Int.pxToDp: Int
-    get() = (this / Resources.getSystem().displayMetrics.density).toInt()
-
-/**
- * Converts to px.
- */
-val Int.dpToPx: Int
-    get() = (this * Resources.getSystem().displayMetrics.density).toInt()
-
-/**
  * Converts to px and takes into account LTR/RTL layout.
  */
 val Float.dpToPxEnd: Float
@@ -180,12 +138,6 @@ val Context.wifiManager: WifiManager
     get() = getSystemService()!!
 
 val Context.powerManager: PowerManager
-    get() = getSystemService()!!
-
-val Context.keyguardManager: KeyguardManager
-    get() = getSystemService()!!
-
-val Context.inputMethodManager: InputMethodManager
     get() = getSystemService()!!
 
 val Context.displayCompat: Display?
@@ -394,6 +346,10 @@ fun Context.isPackageInstalled(packageName: String): Boolean {
     }
 }
 
+val Context.hasMiuiPackageInstaller get() = isPackageInstalled("com.miui.packageinstaller")
+
+val Context.isShizukuInstalled get() = isPackageInstalled("moe.shizuku.privileged.api") || Sui.isSui()
+
 fun Context.isInstalledFromFDroid(): Boolean {
     val installerPackageName = try {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -417,4 +373,12 @@ fun Context.getApplicationIcon(pkgName: String): Drawable? {
     } catch (e: PackageManager.NameNotFoundException) {
         null
     }
+}
+
+/**
+ * Gets system's config_navBarNeedsScrim boolean flag added in Android 10, defaults to true.
+ */
+fun Context.isNavigationBarNeedsScrim(): Boolean {
+    return Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
+        InternalResourceHelper.getBoolean(this, "config_navBarNeedsScrim", true)
 }

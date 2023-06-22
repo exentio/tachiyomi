@@ -42,7 +42,6 @@
     <string name="action_filter_empty">ఫిల్టర్ను తొలగించుము</string>
     <string name="action_filter_unread">చదవనివి</string>
     <string name="action_filter_bookmarked">గుర్తు ఉంచబడినవి</string>
-    <string name="action_filter_downloaded">దిగుమతి చేయబడినవి</string>
     <string name="action_filter">శోధకము</string>
     <string name="action_menu">వివరాలపట్టిక</string>
     <string name="action_settings">అమరికలు</string>
@@ -82,7 +81,6 @@
     <string name="action_display_grid">ఇమిడ్చిన వరుస</string>
     <string name="action_migrate">వలస</string>
     <string name="action_display_mode">ప్రదర్శన ప్రణాలికము</string>
-    <string name="action_display_unread_badge">చదవని అధ్యాయములు</string>
     <string name="action_display_local_badge">స్థానిక మాంగా</string>
     <string name="action_start">మొదలు పెట్టుము</string>
     <string name="action_resume">పునఃప్రారంభించుము</string>

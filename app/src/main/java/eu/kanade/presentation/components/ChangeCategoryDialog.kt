@@ -10,6 +10,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TriStateCheckbox
 import androidx.compose.runtime.Composable
@@ -21,10 +22,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import eu.kanade.core.prefs.CheckboxState
-import eu.kanade.domain.category.model.Category
 import eu.kanade.presentation.category.visualName
-import eu.kanade.presentation.util.horizontalPadding
+import eu.kanade.presentation.util.padding
 import eu.kanade.tachiyomi.R
+import tachiyomi.domain.category.model.Category
 
 @Composable
 fun ChangeCategoryDialog(
@@ -79,7 +80,7 @@ fun ChangeCategoryDialog(
                         )
                     },
                 ) {
-                    Text(text = stringResource(R.string.action_add))
+                    Text(text = stringResource(android.R.string.ok))
                 }
             }
         },
@@ -95,8 +96,7 @@ fun ChangeCategoryDialog(
                         val index = selection.indexOf(it)
                         if (index != -1) {
                             val mutableList = selection.toMutableList()
-                            mutableList.removeAt(index)
-                            mutableList.add(index, it.next())
+                            mutableList[index] = it.next()
                             selection = mutableList.toList()
                         }
                     }
@@ -123,7 +123,7 @@ fun ChangeCategoryDialog(
 
                         Text(
                             text = checkbox.value.visualName,
-                            modifier = Modifier.padding(horizontal = horizontalPadding),
+                            modifier = Modifier.padding(horizontal = MaterialTheme.padding.medium),
                         )
                     }
                 }

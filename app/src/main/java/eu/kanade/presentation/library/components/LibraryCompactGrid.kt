@@ -6,24 +6,21 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.util.fastAny
-import eu.kanade.domain.library.model.LibraryManga
-import eu.kanade.domain.manga.model.MangaCover
 import eu.kanade.presentation.components.MangaCompactGridItem
 import eu.kanade.tachiyomi.ui.library.LibraryItem
+import tachiyomi.domain.library.model.LibraryManga
+import tachiyomi.domain.manga.model.MangaCover
 
 @Composable
 fun LibraryCompactGrid(
     items: List<LibraryItem>,
     showTitle: Boolean,
-    showDownloadBadges: Boolean,
-    showUnreadBadges: Boolean,
-    showLocalBadges: Boolean,
-    showLanguageBadges: Boolean,
     columns: Int,
     contentPadding: PaddingValues,
     selection: List<LibraryManga>,
     onClick: (LibraryManga) -> Unit,
     onLongClick: (LibraryManga) -> Unit,
+    onClickContinueReading: ((LibraryManga) -> Unit)?,
     searchQuery: String?,
     onGlobalSearchClicked: () -> Unit,
 ) {
@@ -50,24 +47,22 @@ fun LibraryCompactGrid(
                     lastModified = manga.coverLastModified,
                 ),
                 coverBadgeStart = {
-                    DownloadsBadge(
-                        enabled = showDownloadBadges,
-                        item = libraryItem,
-                    )
-                    UnreadBadge(
-                        enabled = showUnreadBadges,
-                        item = libraryItem,
-                    )
+                    DownloadsBadge(count = libraryItem.downloadCount.toInt())
+                    UnreadBadge(count = libraryItem.unreadCount.toInt())
                 },
                 coverBadgeEnd = {
                     LanguageBadge(
-                        showLanguage = showLanguageBadges,
-                        showLocal = showLocalBadges,
-                        item = libraryItem,
+                        isLocal = libraryItem.isLocal,
+                        sourceLanguage = libraryItem.sourceLanguage,
                     )
                 },
                 onLongClick = { onLongClick(libraryItem.libraryManga) },
                 onClick = { onClick(libraryItem.libraryManga) },
+                onClickContinueReading = if (onClickContinueReading != null && libraryItem.unreadCount > 0) {
+                    { onClickContinueReading(libraryItem.libraryManga) }
+                } else {
+                    null
+                },
             )
         }
     }

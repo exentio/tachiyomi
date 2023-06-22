@@ -40,24 +40,25 @@ import eu.kanade.presentation.browse.components.ExtensionIcon
 import eu.kanade.presentation.components.EmptyScreen
 import eu.kanade.presentation.components.FastScrollLazyColumn
 import eu.kanade.presentation.components.LoadingScreen
-import eu.kanade.presentation.components.SwipeRefresh
+import eu.kanade.presentation.components.PullRefresh
 import eu.kanade.presentation.manga.components.DotSeparatorNoSpaceText
 import eu.kanade.presentation.theme.header
-import eu.kanade.presentation.util.horizontalPadding
+import eu.kanade.presentation.util.padding
 import eu.kanade.presentation.util.plus
 import eu.kanade.presentation.util.secondaryItemAlpha
-import eu.kanade.presentation.util.topPaddingValues
+import eu.kanade.presentation.util.topSmallPaddingValues
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.extension.model.InstallStep
 import eu.kanade.tachiyomi.ui.browse.extension.ExtensionUiModel
-import eu.kanade.tachiyomi.ui.browse.extension.ExtensionsPresenter
+import eu.kanade.tachiyomi.ui.browse.extension.ExtensionsState
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 
 @Composable
 fun ExtensionScreen(
-    presenter: ExtensionsPresenter,
+    state: ExtensionsState,
     contentPadding: PaddingValues,
+    searchQuery: String?,
     onLongClickItem: (Extension) -> Unit,
     onClickItemCancel: (Extension) -> Unit,
     onInstallExtension: (Extension.Available) -> Unit,
@@ -68,20 +69,27 @@ fun ExtensionScreen(
     onClickUpdateAll: () -> Unit,
     onRefresh: () -> Unit,
 ) {
-    SwipeRefresh(
-        refreshing = presenter.isRefreshing,
+    PullRefresh(
+        refreshing = state.isRefreshing,
         onRefresh = onRefresh,
-        enabled = !presenter.isLoading,
+        enabled = !state.isLoading,
     ) {
         when {
-            presenter.isLoading -> LoadingScreen()
-            presenter.isEmpty -> EmptyScreen(
-                textResource = R.string.empty_screen,
-                modifier = Modifier.padding(contentPadding),
-            )
+            state.isLoading -> LoadingScreen(modifier = Modifier.padding(contentPadding))
+            state.isEmpty -> {
+                val msg = if (!searchQuery.isNullOrEmpty()) {
+                    R.string.no_results_found
+                } else {
+                    R.string.empty_screen
+                }
+                EmptyScreen(
+                    textResource = msg,
+                    modifier = Modifier.padding(contentPadding),
+                )
+            }
             else -> {
                 ExtensionContent(
-                    state = presenter,
+                    state = state,
                     contentPadding = contentPadding,
                     onLongClickItem = onLongClickItem,
                     onClickItemCancel = onClickItemCancel,
@@ -113,80 +121,76 @@ private fun ExtensionContent(
     var trustState by remember { mutableStateOf<Extension.Untrusted?>(null) }
 
     FastScrollLazyColumn(
-        contentPadding = contentPadding + topPaddingValues,
+        contentPadding = contentPadding + topSmallPaddingValues,
     ) {
-        items(
-            items = state.items,
-            contentType = {
-                when (it) {
-                    is ExtensionUiModel.Header -> "header"
-                    is ExtensionUiModel.Item -> "item"
-                }
-            },
-            key = {
-                when (it) {
-                    is ExtensionUiModel.Header -> "extensionHeader-${it.hashCode()}"
-                    is ExtensionUiModel.Item -> "extension-${it.hashCode()}"
-                }
-            },
-        ) { item ->
-            when (item) {
-                is ExtensionUiModel.Header.Resource -> {
-                    val action: @Composable RowScope.() -> Unit =
-                        if (item.textRes == R.string.ext_updates_pending) {
-                            {
-                                Button(onClick = { onClickUpdateAll() }) {
-                                    Text(
-                                        text = stringResource(R.string.ext_update_all),
-                                        style = LocalTextStyle.current.copy(
-                                            color = MaterialTheme.colorScheme.onPrimary,
-                                        ),
-                                    )
-                                }
-                            }
-                        } else {
-                            {}
-                        }
-                    ExtensionHeader(
-                        textRes = item.textRes,
-                        modifier = Modifier.animateItemPlacement(),
-                        action = action,
-                    )
-                }
-                is ExtensionUiModel.Header.Text -> {
-                    ExtensionHeader(
-                        text = item.text,
-                        modifier = Modifier.animateItemPlacement(),
-                    )
-                }
-                is ExtensionUiModel.Item -> {
-                    ExtensionItem(
-                        modifier = Modifier.animateItemPlacement(),
-                        item = item,
-                        onClickItem = {
-                            when (it) {
-                                is Extension.Available -> onInstallExtension(it)
-                                is Extension.Installed -> onOpenExtension(it)
-                                is Extension.Untrusted -> { trustState = it }
-                            }
-                        },
-                        onLongClickItem = onLongClickItem,
-                        onClickItemCancel = onClickItemCancel,
-                        onClickItemAction = {
-                            when (it) {
-                                is Extension.Available -> onInstallExtension(it)
-                                is Extension.Installed -> {
-                                    if (it.hasUpdate) {
-                                        onUpdateExtension(it)
-                                    } else {
-                                        onOpenExtension(it)
+        state.items.forEach { (header, items) ->
+            item(
+                contentType = "header",
+                key = "extensionHeader-${header.hashCode()}",
+            ) {
+                when (header) {
+                    is ExtensionUiModel.Header.Resource -> {
+                        val action: @Composable RowScope.() -> Unit =
+                            if (header.textRes == R.string.ext_updates_pending) {
+                                {
+                                    Button(onClick = { onClickUpdateAll() }) {
+                                        Text(
+                                            text = stringResource(R.string.ext_update_all),
+                                            style = LocalTextStyle.current.copy(
+                                                color = MaterialTheme.colorScheme.onPrimary,
+                                            ),
+                                        )
                                     }
                                 }
-                                is Extension.Untrusted -> { trustState = it }
+                            } else {
+                                {}
                             }
-                        },
-                    )
+                        ExtensionHeader(
+                            textRes = header.textRes,
+                            modifier = Modifier.animateItemPlacement(),
+                            action = action,
+                        )
+                    }
+                    is ExtensionUiModel.Header.Text -> {
+                        ExtensionHeader(
+                            text = header.text,
+                            modifier = Modifier.animateItemPlacement(),
+                        )
+                    }
                 }
+            }
+
+            items(
+                items = items,
+                contentType = { "item" },
+                key = { "extension-${it.hashCode()}" },
+            ) { item ->
+                ExtensionItem(
+                    modifier = Modifier.animateItemPlacement(),
+                    item = item,
+                    onClickItem = {
+                        when (it) {
+                            is Extension.Available -> onInstallExtension(it)
+                            is Extension.Installed -> onOpenExtension(it)
+                            is Extension.Untrusted -> { trustState = it }
+                        }
+                    },
+                    onLongClickItem = onLongClickItem,
+                    onClickItemCancel = onClickItemCancel,
+                    onClickItemAction = {
+                        when (it) {
+                            is Extension.Available -> onInstallExtension(it)
+                            is Extension.Installed -> {
+                                if (it.hasUpdate) {
+                                    onUpdateExtension(it)
+                                } else {
+                                    onOpenExtension(it)
+                                }
+                            }
+                            is Extension.Untrusted -> { trustState = it }
+                        }
+                    },
+                )
             }
         }
     }
@@ -272,7 +276,7 @@ private fun ExtensionItemContent(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier.padding(start = horizontalPadding),
+        modifier = modifier.padding(start = MaterialTheme.padding.medium),
     ) {
         Text(
             text = extension.name,
@@ -396,7 +400,7 @@ private fun ExtensionHeader(
     action: @Composable RowScope.() -> Unit = {},
 ) {
     Row(
-        modifier = modifier.padding(horizontal = horizontalPadding),
+        modifier = modifier.padding(horizontal = MaterialTheme.padding.medium),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(

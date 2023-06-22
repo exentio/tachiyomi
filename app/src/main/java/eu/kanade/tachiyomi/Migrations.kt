@@ -9,7 +9,6 @@ import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.library.service.LibraryPreferences
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.domain.ui.UiPreferences
-import eu.kanade.tachiyomi.core.preference.PreferenceStore
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.data.backup.BackupCreatorJob
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
@@ -27,6 +26,7 @@ import eu.kanade.tachiyomi.util.preference.plusAssign
 import eu.kanade.tachiyomi.util.system.DeviceUtil
 import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.widget.ExtendedNavigationView
+import tachiyomi.core.preference.PreferenceStore
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.File
@@ -36,7 +36,6 @@ object Migrations {
     /**
      * Performs a migration when the application is updated.
      *
-     * @param preferences Preferences of the application.
      * @return true if a migration is performed, false otherwise.
      */
     fun upgrade(
@@ -336,6 +335,16 @@ object Migrations {
                     prefs.edit {
                         val themeMode = prefs.getString(uiPreferences.themeMode().key(), null) ?: return@edit
                         putString(uiPreferences.themeMode().key(), themeMode.uppercase())
+                    }
+                }
+            }
+            if (oldVersion < 92) {
+                val trackingQueuePref = context.getSharedPreferences("tracking_queue", Context.MODE_PRIVATE)
+                trackingQueuePref.all.forEach {
+                    val (_, lastChapterRead) = it.value.toString().split(":")
+                    trackingQueuePref.edit {
+                        remove(it.key)
+                        putFloat(it.key, lastChapterRead.toFloat())
                     }
                 }
             }

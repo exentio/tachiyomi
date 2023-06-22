@@ -21,7 +21,7 @@ import eu.kanade.tachiyomi.util.system.isReleaseBuildType
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
-class SettingsReaderScreen : SearchableSettings {
+object SettingsReaderScreen : SearchableSettings {
 
     @ReadOnlyComposable
     @Composable
@@ -134,6 +134,10 @@ class SettingsReaderScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     pref = readerPreferences.skipFiltered(),
                     title = stringResource(R.string.pref_skip_filtered_chapters),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    pref = readerPreferences.skipDupe(),
+                    title = stringResource(R.string.pref_skip_dupe_chapters),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     pref = readerPreferences.alwaysShowChapterTransition(),

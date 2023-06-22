@@ -15,10 +15,10 @@ import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.SourceFactory
 import eu.kanade.tachiyomi.util.lang.Hash
 import eu.kanade.tachiyomi.util.system.getApplicationIcon
-import eu.kanade.tachiyomi.util.system.logcat
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import logcat.LogPriority
+import tachiyomi.core.util.system.logcat
 import uy.kohesive.injekt.injectLazy
 
 /**
@@ -38,7 +38,7 @@ internal object ExtensionLoader {
     private const val METADATA_NSFW = "tachiyomi.extension.nsfw"
     private const val METADATA_HAS_README = "tachiyomi.extension.hasReadme"
     private const val METADATA_HAS_CHANGELOG = "tachiyomi.extension.hasChangelog"
-    const val LIB_VERSION_MIN = 1.2
+    const val LIB_VERSION_MIN = 1.3
     const val LIB_VERSION_MAX = 1.4
 
     private const val PACKAGE_FLAGS = PackageManager.GET_CONFIGURATIONS or PackageManager.GET_SIGNATURES
@@ -126,8 +126,8 @@ internal object ExtensionLoader {
         }
 
         // Validate lib version
-        val libVersion = versionName.substringBeforeLast('.').toDouble()
-        if (libVersion < LIB_VERSION_MIN || libVersion > LIB_VERSION_MAX) {
+        val libVersion = versionName.substringBeforeLast('.').toDoubleOrNull()
+        if (libVersion == null || libVersion < LIB_VERSION_MIN || libVersion > LIB_VERSION_MAX) {
             logcat(LogPriority.WARN) {
                 "Lib version is $libVersion, while only versions " +
                     "$LIB_VERSION_MIN to $LIB_VERSION_MAX are allowed"
@@ -136,7 +136,6 @@ internal object ExtensionLoader {
         }
 
         val signatureHash = getSignatureHash(pkgInfo)
-
         if (signatureHash == null) {
             logcat(LogPriority.WARN) { "Package $pkgName isn't signed" }
             return LoadResult.Error

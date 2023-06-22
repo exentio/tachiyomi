@@ -4,14 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.net.Uri
 import com.hippo.unifile.UniFile
-import data.Manga_sync
-import data.Mangas
-import eu.kanade.data.DatabaseHandler
-import eu.kanade.data.updateStrategyAdapter
 import eu.kanade.domain.backup.service.BackupPreferences
-import eu.kanade.domain.category.interactor.GetCategories
-import eu.kanade.domain.category.model.Category
-import eu.kanade.domain.history.model.HistoryUpdate
 import eu.kanade.domain.library.service.LibraryPreferences
 import eu.kanade.domain.manga.interactor.GetFavorites
 import eu.kanade.tachiyomi.R
@@ -38,19 +31,26 @@ import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.model.copyFrom
 import eu.kanade.tachiyomi.util.system.hasPermission
-import eu.kanade.tachiyomi.util.system.logcat
-import eu.kanade.tachiyomi.util.system.toLong
 import kotlinx.serialization.protobuf.ProtoBuf
 import logcat.LogPriority
 import okio.buffer
 import okio.gzip
 import okio.sink
+import tachiyomi.core.util.lang.toLong
+import tachiyomi.core.util.system.logcat
+import tachiyomi.data.DatabaseHandler
+import tachiyomi.data.Manga_sync
+import tachiyomi.data.Mangas
+import tachiyomi.data.updateStrategyAdapter
+import tachiyomi.domain.category.interactor.GetCategories
+import tachiyomi.domain.category.model.Category
+import tachiyomi.domain.history.model.HistoryUpdate
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.FileOutputStream
 import java.util.Date
 import kotlin.math.max
-import eu.kanade.domain.manga.model.Manga as DomainManga
+import tachiyomi.domain.manga.model.Manga as DomainManga
 
 class BackupManager(
     private val context: Context,

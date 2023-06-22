@@ -9,10 +9,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
-import eu.kanade.domain.source.model.Source
-import eu.kanade.presentation.util.horizontalPadding
+import eu.kanade.presentation.util.padding
 import eu.kanade.presentation.util.secondaryItemAlpha
 import eu.kanade.tachiyomi.util.system.LocaleHelper
+import tachiyomi.domain.source.model.Source
 
 @Composable
 fun BaseSourceItem(
@@ -43,7 +43,7 @@ private val defaultIcon: @Composable RowScope.(Source) -> Unit = { source ->
 private val defaultContent: @Composable RowScope.(Source, String?) -> Unit = { source, sourceLangString ->
     Column(
         modifier = Modifier
-            .padding(horizontal = horizontalPadding)
+            .padding(horizontal = MaterialTheme.padding.medium)
             .weight(1f),
     ) {
         Text(

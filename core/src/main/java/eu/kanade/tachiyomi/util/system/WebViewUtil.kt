@@ -7,11 +7,12 @@ import android.webkit.CookieManager
 import android.webkit.WebSettings
 import android.webkit.WebView
 import logcat.LogPriority
+import tachiyomi.core.util.system.logcat
 
 object WebViewUtil {
     const val SPOOF_PACKAGE_NAME = "org.chromium.chrome"
 
-    const val MINIMUM_WEBVIEW_VERSION = 102
+    const val MINIMUM_WEBVIEW_VERSION = 108
 
     fun supportsWebView(context: Context): Boolean {
         try {
@@ -40,6 +41,11 @@ fun WebView.setDefaultSettings() {
         useWideViewPort = true
         loadWithOverviewMode = true
         cacheMode = WebSettings.LOAD_DEFAULT
+
+        // Allow zooming
+        setSupportZoom(true)
+        builtInZoomControls = true
+        displayZoomControls = false
     }
 }
 

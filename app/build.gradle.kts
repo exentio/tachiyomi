@@ -1,5 +1,5 @@
-import org.gradle.api.tasks.testing.logging.TestLogEvent
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import org.jmailen.gradle.kotlinter.tasks.LintTask
 
 plugins {
     id("com.android.application")
@@ -7,7 +7,6 @@ plugins {
     kotlin("android")
     kotlin("plugin.serialization")
     id("com.github.zellius.shortcut-helper")
-    id("com.squareup.sqldelight")
 }
 
 shortcutHelper.setFilePath("./shortcuts.xml")
@@ -16,15 +15,11 @@ val SUPPORTED_ABIS = setOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
 
 android {
     namespace = "eu.kanade.tachiyomi"
-    compileSdk = AndroidConfig.compileSdk
-    ndkVersion = AndroidConfig.ndk
 
     defaultConfig {
         applicationId = "eu.kanade.tachiyomi_freqpatch"
-        minSdk = AndroidConfig.minSdk
-        targetSdk = AndroidConfig.targetSdk
-        versionCode = 91
-        versionName = "0.14.2"
+        versionCode = 101
+        versionName = "0.14.6"
 
         buildConfigField("String", "COMMIT_COUNT", "\"${getCommitCount()}\"")
         buildConfigField("String", "COMMIT_SHA", "\"${getGitSha()}\"")
@@ -53,6 +48,7 @@ android {
         named("debug") {
             versionNameSuffix = "-${getCommitCount()}"
             applicationIdSuffix = ".debug"
+            isPseudoLocalesEnabled = true
         }
         named("release") {
             isShrinkResources = true
@@ -93,7 +89,8 @@ android {
             dimension = "default"
         }
         create("dev") {
-            resourceConfigurations.addAll(listOf("en", "xxhdpi"))
+            // Include pseudolocales: https://developer.android.com/guide/topics/resources/pseudolocales
+            resourceConfigurations.addAll(listOf("en", "en_XA", "ar_XB", "xxhdpi"))
             dimension = "default"
         }
     }
@@ -132,53 +129,38 @@ android {
     composeOptions {
         kotlinCompilerExtensionVersion = compose.versions.compiler.get()
     }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
-    }
-
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_1_8.toString()
-    }
-
-    sqldelight {
-        database("Database") {
-            packageName = "eu.kanade.tachiyomi"
-            dialect = "sqlite:3.24"
-        }
-    }
 }
 
 dependencies {
     implementation(project(":i18n"))
     implementation(project(":core"))
     implementation(project(":source-api"))
+    implementation(project(":data"))
+    implementation(project(":domain"))
+    implementation(project(":presentation-core"))
+    implementation(project(":presentation-widget"))
 
     // Compose
     implementation(platform(compose.bom))
     implementation(compose.activity)
     implementation(compose.foundation)
     implementation(compose.material3.core)
-    implementation(compose.material3.adapter)
+    implementation(compose.material.core)
     implementation(compose.material.icons)
     implementation(compose.animation)
     implementation(compose.animation.graphics)
     implementation(compose.ui.tooling)
     implementation(compose.ui.util)
     implementation(compose.accompanist.webview)
-    implementation(compose.accompanist.swiperefresh)
     implementation(compose.accompanist.flowlayout)
     implementation(compose.accompanist.permissions)
+    implementation(compose.accompanist.themeadapter)
+    implementation(compose.accompanist.systemuicontroller)
 
     implementation(androidx.paging.runtime)
     implementation(androidx.paging.compose)
 
     implementation(libs.bundles.sqlite)
-    implementation(androidx.sqlite)
-    implementation(libs.sqldelight.android.driver)
-    implementation(libs.sqldelight.coroutines)
-    implementation(libs.sqldelight.android.paging)
 
     implementation(kotlinx.reflect)
 
@@ -195,7 +177,6 @@ dependencies {
     implementation(androidx.splashscreen)
     implementation(androidx.recyclerview)
     implementation(androidx.viewpager)
-    implementation(androidx.glance)
     implementation(androidx.profileinstaller)
 
     implementation(androidx.bundles.lifecycle)
@@ -228,15 +209,11 @@ dependencies {
     // Preferences
     implementation(libs.preferencektx)
 
-    // Model View Presenter
-    implementation(libs.bundles.nucleus)
-
     // Dependency injection
     implementation(libs.injekt.core)
 
     // Image loading
     implementation(libs.bundles.coil)
-
     implementation(libs.subsamplingscaleimageview) {
         exclude(module = "image-decoder")
     }
@@ -254,21 +231,15 @@ dependencies {
         exclude(group = "androidx.viewpager", module = "viewpager")
     }
     implementation(libs.insetter)
-    implementation(libs.markwon)
+    implementation(libs.bundles.richtext)
     implementation(libs.aboutLibraries.compose)
     implementation(libs.cascade)
-    implementation(libs.numberpicker)
     implementation(libs.bundles.voyager)
-
-    // Conductor
-    implementation(libs.bundles.conductor)
-
-    // FlowBinding
-    implementation(libs.bundles.flowbinding)
+    implementation(libs.wheelpicker)
+    implementation(libs.materialmotion.core)
 
     // Logging
     implementation(libs.logcat)
-
 
     // Shizuku
     implementation(libs.bundles.shizuku)
@@ -296,14 +267,8 @@ androidComponents {
 }
 
 tasks {
-    withType<Test> {
-        useJUnitPlatform()
-        testLogging {
-            events(TestLogEvent.PASSED, TestLogEvent.SKIPPED, TestLogEvent.FAILED)
-        }
-    }
 
-    withType<org.jmailen.gradle.kotlinter.tasks.LintTask>().configureEach {
+    withType<LintTask>().configureEach {
         exclude { it.file.path.contains("generated[\\\\/]".toRegex()) }
     }
 
@@ -311,10 +276,11 @@ tasks {
     withType<KotlinCompile> {
         kotlinOptions.freeCompilerArgs += listOf(
             "-opt-in=coil.annotation.ExperimentalCoilApi",
-            "-opt-in=com.google.accompanist.pager.ExperimentalPagerApi",
             "-opt-in=com.google.accompanist.permissions.ExperimentalPermissionsApi",
+            "-opt-in=androidx.compose.foundation.layout.ExperimentalLayoutApi",
             "-opt-in=androidx.compose.material.ExperimentalMaterialApi",
             "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
+            "-opt-in=androidx.compose.material.ExperimentalMaterialApi",
             "-opt-in=androidx.compose.ui.ExperimentalComposeUiApi",
             "-opt-in=androidx.compose.foundation.ExperimentalFoundationApi",
             "-opt-in=androidx.compose.animation.ExperimentalAnimationApi",
@@ -337,11 +303,6 @@ tasks {
                     project.buildDir.absolutePath + "/compose_metrics"
             )
         }
-    }
-
-    preBuild {
-        val ktlintTask = if (System.getenv("GITHUB_BASE_REF") == null) formatKotlin else lintKotlin
-        dependsOn(ktlintTask)
     }
 }
 

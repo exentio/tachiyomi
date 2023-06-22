@@ -3,32 +3,30 @@ package eu.kanade.presentation.category
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import eu.kanade.presentation.category.components.CategoryContent
-import eu.kanade.presentation.category.components.CategoryCreateDialog
-import eu.kanade.presentation.category.components.CategoryDeleteDialog
 import eu.kanade.presentation.category.components.CategoryFloatingActionButton
-import eu.kanade.presentation.category.components.CategoryRenameDialog
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.EmptyScreen
-import eu.kanade.presentation.components.LoadingScreen
 import eu.kanade.presentation.components.Scaffold
-import eu.kanade.presentation.util.horizontalPadding
+import eu.kanade.presentation.util.padding
 import eu.kanade.presentation.util.plus
-import eu.kanade.presentation.util.topPaddingValues
+import eu.kanade.presentation.util.topSmallPaddingValues
 import eu.kanade.tachiyomi.R
-import eu.kanade.tachiyomi.ui.category.CategoryPresenter
-import eu.kanade.tachiyomi.ui.category.CategoryPresenter.Dialog
-import eu.kanade.tachiyomi.util.system.toast
-import kotlinx.coroutines.flow.collectLatest
+import eu.kanade.tachiyomi.ui.category.CategoryScreenState
+import tachiyomi.domain.category.model.Category
 
 @Composable
 fun CategoryScreen(
-    presenter: CategoryPresenter,
+    state: CategoryScreenState.Success,
+    onClickCreate: () -> Unit,
+    onClickRename: (Category) -> Unit,
+    onClickDelete: (Category) -> Unit,
+    onClickMoveUp: (Category) -> Unit,
+    onClickMoveDown: (Category) -> Unit,
     navigateUp: () -> Unit,
 ) {
     val lazyListState = rememberLazyListState()
@@ -43,63 +41,26 @@ fun CategoryScreen(
         floatingActionButton = {
             CategoryFloatingActionButton(
                 lazyListState = lazyListState,
-                onCreate = { presenter.dialog = Dialog.Create },
+                onCreate = onClickCreate,
             )
         },
     ) { paddingValues ->
-        val context = LocalContext.current
-        when {
-            presenter.isLoading -> LoadingScreen()
-            presenter.isEmpty -> EmptyScreen(
+        if (state.isEmpty) {
+            EmptyScreen(
                 textResource = R.string.information_empty_category,
                 modifier = Modifier.padding(paddingValues),
             )
-            else -> {
-                CategoryContent(
-                    state = presenter,
-                    lazyListState = lazyListState,
-                    paddingValues = paddingValues + topPaddingValues + PaddingValues(horizontal = horizontalPadding),
-                    onMoveUp = { presenter.moveUp(it) },
-                    onMoveDown = { presenter.moveDown(it) },
-                )
-            }
+            return@Scaffold
         }
 
-        val onDismissRequest = { presenter.dialog = null }
-        when (val dialog = presenter.dialog) {
-            Dialog.Create -> {
-                CategoryCreateDialog(
-                    onDismissRequest = onDismissRequest,
-                    onCreate = { presenter.createCategory(it) },
-                )
-            }
-            is Dialog.Rename -> {
-                CategoryRenameDialog(
-                    onDismissRequest = onDismissRequest,
-                    onRename = { presenter.renameCategory(dialog.category, it) },
-                    category = dialog.category,
-                )
-            }
-            is Dialog.Delete -> {
-                CategoryDeleteDialog(
-                    onDismissRequest = onDismissRequest,
-                    onDelete = { presenter.deleteCategory(dialog.category) },
-                    category = dialog.category,
-                )
-            }
-            else -> {}
-        }
-        LaunchedEffect(Unit) {
-            presenter.events.collectLatest { event ->
-                when (event) {
-                    is CategoryPresenter.Event.CategoryWithNameAlreadyExists -> {
-                        context.toast(R.string.error_category_exists)
-                    }
-                    is CategoryPresenter.Event.InternalError -> {
-                        context.toast(R.string.internal_error)
-                    }
-                }
-            }
-        }
+        CategoryContent(
+            categories = state.categories,
+            lazyListState = lazyListState,
+            paddingValues = paddingValues + topSmallPaddingValues + PaddingValues(horizontal = MaterialTheme.padding.medium),
+            onClickRename = onClickRename,
+            onClickDelete = onClickDelete,
+            onMoveUp = onClickMoveUp,
+            onMoveDown = onClickMoveDown,
+        )
     }
 }

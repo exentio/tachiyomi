@@ -1,8 +1,6 @@
 package eu.kanade.tachiyomi.extension.api
 
 import android.content.Context
-import eu.kanade.tachiyomi.core.preference.Preference
-import eu.kanade.tachiyomi.core.preference.PreferenceStore
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.extension.model.AvailableSources
 import eu.kanade.tachiyomi.extension.model.Extension
@@ -10,12 +8,14 @@ import eu.kanade.tachiyomi.extension.model.LoadResult
 import eu.kanade.tachiyomi.extension.util.ExtensionLoader
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.NetworkHelper
-import eu.kanade.tachiyomi.network.await
+import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.parseAs
-import eu.kanade.tachiyomi.util.lang.withIOContext
-import eu.kanade.tachiyomi.util.system.logcat
 import kotlinx.serialization.Serializable
 import logcat.LogPriority
+import tachiyomi.core.preference.Preference
+import tachiyomi.core.preference.PreferenceStore
+import tachiyomi.core.util.lang.withIOContext
+import tachiyomi.core.util.system.logcat
 import uy.kohesive.injekt.injectLazy
 import java.util.Date
 import java.util.concurrent.TimeUnit
@@ -39,7 +39,7 @@ internal class ExtensionGithubApi {
                 try {
                     networkService.client
                         .newCall(GET("${REPO_URL_PREFIX}index.min.json"))
-                        .await()
+                        .awaitSuccess()
                 } catch (e: Throwable) {
                     logcat(LogPriority.ERROR, e) { "Failed to get extensions from GitHub" }
                     requiresFallbackSource = true
@@ -50,7 +50,7 @@ internal class ExtensionGithubApi {
             val response = githubResponse ?: run {
                 networkService.client
                     .newCall(GET("${FALLBACK_REPO_URL_PREFIX}index.min.json"))
-                    .await()
+                    .awaitSuccess()
             }
 
             val extensions = response
@@ -87,8 +87,9 @@ internal class ExtensionGithubApi {
         for (installedExt in installedExtensions) {
             val pkgName = installedExt.pkgName
             val availableExt = extensions.find { it.pkgName == pkgName } ?: continue
-
-            val hasUpdate = installedExt.isUnofficial.not() && (availableExt.versionCode > installedExt.versionCode)
+            val hasUpdatedVer = availableExt.versionCode > installedExt.versionCode
+            val hasUpdatedLib = availableExt.libVersion > installedExt.libVersion
+            val hasUpdate = installedExt.isUnofficial.not() && (hasUpdatedVer || hasUpdatedLib)
             if (hasUpdate) {
                 extensionsWithUpdate.add(installedExt)
             }

@@ -1,16 +1,8 @@
 package eu.kanade.domain
 
-import eu.kanade.data.category.CategoryRepositoryImpl
-import eu.kanade.data.chapter.ChapterRepositoryImpl
-import eu.kanade.data.history.HistoryRepositoryImpl
-import eu.kanade.data.manga.MangaRepositoryImpl
-import eu.kanade.data.source.SourceDataRepositoryImpl
 import eu.kanade.data.source.SourceRepositoryImpl
-import eu.kanade.data.track.TrackRepositoryImpl
-import eu.kanade.data.updates.UpdatesRepositoryImpl
 import eu.kanade.domain.category.interactor.CreateCategoryWithName
 import eu.kanade.domain.category.interactor.DeleteCategory
-import eu.kanade.domain.category.interactor.GetCategories
 import eu.kanade.domain.category.interactor.RenameCategory
 import eu.kanade.domain.category.interactor.ReorderCategory
 import eu.kanade.domain.category.interactor.ResetCategoryFlags
@@ -18,27 +10,18 @@ import eu.kanade.domain.category.interactor.SetDisplayModeForCategory
 import eu.kanade.domain.category.interactor.SetMangaCategories
 import eu.kanade.domain.category.interactor.SetSortModeForCategory
 import eu.kanade.domain.category.interactor.UpdateCategory
-import eu.kanade.domain.category.repository.CategoryRepository
 import eu.kanade.domain.chapter.interactor.GetChapter
 import eu.kanade.domain.chapter.interactor.GetChapterByMangaId
 import eu.kanade.domain.chapter.interactor.SetMangaDefaultChapterFlags
 import eu.kanade.domain.chapter.interactor.SetReadStatus
-import eu.kanade.domain.chapter.interactor.ShouldUpdateDbChapter
 import eu.kanade.domain.chapter.interactor.SyncChaptersWithSource
 import eu.kanade.domain.chapter.interactor.SyncChaptersWithTrackServiceTwoWay
 import eu.kanade.domain.chapter.interactor.UpdateChapter
-import eu.kanade.domain.chapter.repository.ChapterRepository
 import eu.kanade.domain.download.interactor.DeleteDownload
 import eu.kanade.domain.extension.interactor.GetExtensionLanguages
 import eu.kanade.domain.extension.interactor.GetExtensionSources
 import eu.kanade.domain.extension.interactor.GetExtensionsByType
-import eu.kanade.domain.history.interactor.DeleteAllHistory
-import eu.kanade.domain.history.interactor.GetHistory
-import eu.kanade.domain.history.interactor.GetNextUnreadChapters
-import eu.kanade.domain.history.interactor.RemoveHistoryById
-import eu.kanade.domain.history.interactor.RemoveHistoryByMangaId
-import eu.kanade.domain.history.interactor.UpsertHistory
-import eu.kanade.domain.history.repository.HistoryRepository
+import eu.kanade.domain.history.interactor.GetNextChapters
 import eu.kanade.domain.manga.interactor.GetDuplicateLibraryManga
 import eu.kanade.domain.manga.interactor.GetFavorites
 import eu.kanade.domain.manga.interactor.GetLibraryManga
@@ -49,7 +32,6 @@ import eu.kanade.domain.manga.interactor.ResetViewerFlags
 import eu.kanade.domain.manga.interactor.SetMangaChapterFlags
 import eu.kanade.domain.manga.interactor.SetMangaViewerFlags
 import eu.kanade.domain.manga.interactor.UpdateManga
-import eu.kanade.domain.manga.repository.MangaRepository
 import eu.kanade.domain.source.interactor.GetEnabledSources
 import eu.kanade.domain.source.interactor.GetLanguagesWithSources
 import eu.kanade.domain.source.interactor.GetRemoteManga
@@ -59,15 +41,32 @@ import eu.kanade.domain.source.interactor.SetMigrateSorting
 import eu.kanade.domain.source.interactor.ToggleLanguage
 import eu.kanade.domain.source.interactor.ToggleSource
 import eu.kanade.domain.source.interactor.ToggleSourcePin
-import eu.kanade.domain.source.repository.SourceDataRepository
 import eu.kanade.domain.source.repository.SourceRepository
 import eu.kanade.domain.track.interactor.DeleteTrack
 import eu.kanade.domain.track.interactor.GetTracks
 import eu.kanade.domain.track.interactor.GetTracksPerManga
 import eu.kanade.domain.track.interactor.InsertTrack
-import eu.kanade.domain.track.repository.TrackRepository
-import eu.kanade.domain.updates.interactor.GetUpdates
-import eu.kanade.domain.updates.repository.UpdatesRepository
+import tachiyomi.data.category.CategoryRepositoryImpl
+import tachiyomi.data.chapter.ChapterRepositoryImpl
+import tachiyomi.data.history.HistoryRepositoryImpl
+import tachiyomi.data.manga.MangaRepositoryImpl
+import tachiyomi.data.source.SourceDataRepositoryImpl
+import tachiyomi.data.track.TrackRepositoryImpl
+import tachiyomi.data.updates.UpdatesRepositoryImpl
+import tachiyomi.domain.category.interactor.GetCategories
+import tachiyomi.domain.category.repository.CategoryRepository
+import tachiyomi.domain.chapter.interactor.ShouldUpdateDbChapter
+import tachiyomi.domain.chapter.repository.ChapterRepository
+import tachiyomi.domain.history.interactor.GetHistory
+import tachiyomi.domain.history.interactor.GetTotalReadDuration
+import tachiyomi.domain.history.interactor.RemoveHistory
+import tachiyomi.domain.history.interactor.UpsertHistory
+import tachiyomi.domain.history.repository.HistoryRepository
+import tachiyomi.domain.manga.repository.MangaRepository
+import tachiyomi.domain.source.repository.SourceDataRepository
+import tachiyomi.domain.track.repository.TrackRepository
+import tachiyomi.domain.updates.interactor.GetUpdates
+import tachiyomi.domain.updates.repository.UpdatesRepository
 import uy.kohesive.injekt.api.InjektModule
 import uy.kohesive.injekt.api.InjektRegistrar
 import uy.kohesive.injekt.api.addFactory
@@ -94,7 +93,7 @@ class DomainModule : InjektModule {
         addFactory { GetLibraryManga(get()) }
         addFactory { GetMangaWithChapters(get(), get()) }
         addFactory { GetManga(get()) }
-        addFactory { GetNextUnreadChapters(get(), get(), get()) }
+        addFactory { GetNextChapters(get(), get(), get()) }
         addFactory { ResetViewerFlags(get()) }
         addFactory { SetMangaChapterFlags(get()) }
         addFactory { SetMangaDefaultChapterFlags(get(), get(), get()) }
@@ -119,11 +118,10 @@ class DomainModule : InjektModule {
         addFactory { SyncChaptersWithTrackServiceTwoWay(get(), get()) }
 
         addSingletonFactory<HistoryRepository> { HistoryRepositoryImpl(get()) }
-        addFactory { DeleteAllHistory(get()) }
         addFactory { GetHistory(get()) }
         addFactory { UpsertHistory(get()) }
-        addFactory { RemoveHistoryById(get()) }
-        addFactory { RemoveHistoryByMangaId(get()) }
+        addFactory { RemoveHistory(get()) }
+        addFactory { GetTotalReadDuration(get()) }
 
         addFactory { DeleteDownload(get(), get()) }
 
@@ -132,7 +130,7 @@ class DomainModule : InjektModule {
         addFactory { GetExtensionLanguages(get(), get()) }
 
         addSingletonFactory<UpdatesRepository> { UpdatesRepositoryImpl(get()) }
-        addFactory { GetUpdates(get(), get()) }
+        addFactory { GetUpdates(get()) }
 
         addSingletonFactory<SourceRepository> { SourceRepositoryImpl(get(), get()) }
         addSingletonFactory<SourceDataRepository> { SourceDataRepositoryImpl(get()) }

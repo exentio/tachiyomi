@@ -11,11 +11,11 @@ import eu.kanade.tachiyomi.network.DELETE
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.network.PUT
-import eu.kanade.tachiyomi.network.await
+import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.parseAs
-import eu.kanade.tachiyomi.util.system.logcat
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.add
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -28,6 +28,7 @@ import logcat.LogPriority
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
+import tachiyomi.core.util.system.logcat
 import uy.kohesive.injekt.injectLazy
 
 class MangaUpdatesApi(
@@ -52,7 +53,7 @@ class MangaUpdatesApi(
                     url = "$baseUrl/v1/lists/series/${track.media_id}",
                 ),
             )
-                .await()
+                .awaitSuccess()
                 .parseAs<ListItem>()
 
         val rating = getSeriesRating(track)
@@ -76,7 +77,7 @@ class MangaUpdatesApi(
                 body = body.toString().toRequestBody(contentType),
             ),
         )
-            .await()
+            .awaitSuccess()
             .let {
                 if (it.code == 200) {
                     track.status = status
@@ -103,7 +104,7 @@ class MangaUpdatesApi(
                 body = body.toString().toRequestBody(contentType),
             ),
         )
-            .await()
+            .awaitSuccess()
 
         updateSeriesRating(track)
     }
@@ -115,7 +116,7 @@ class MangaUpdatesApi(
                     url = "$baseUrl/v1/series/${track.media_id}/rating",
                 ),
             )
-                .await()
+                .awaitSuccess()
                 .parseAs<Rating>()
         } catch (e: Exception) {
             null
@@ -133,20 +134,27 @@ class MangaUpdatesApi(
                     body = body.toString().toRequestBody(contentType),
                 ),
             )
-                .await()
+                .awaitSuccess()
         } else {
             authClient.newCall(
                 DELETE(
                     url = "$baseUrl/v1/series/${track.media_id}/rating",
                 ),
             )
-                .await()
+                .awaitSuccess()
         }
     }
 
     suspend fun search(query: String): List<Record> {
         val body = buildJsonObject {
             put("search", query)
+            put(
+                "filter_types",
+                buildJsonArray {
+                    add("drama cd")
+                    add("novel")
+                },
+            )
         }
         return client.newCall(
             POST(
@@ -154,7 +162,7 @@ class MangaUpdatesApi(
                 body = body.toString().toRequestBody(contentType),
             ),
         )
-            .await()
+            .awaitSuccess()
             .parseAs<JsonObject>()
             .let { obj ->
                 obj["results"]?.jsonArray?.map { element ->
@@ -175,7 +183,7 @@ class MangaUpdatesApi(
                 body = body.toString().toRequestBody(contentType),
             ),
         )
-            .await()
+            .awaitSuccess()
             .parseAs<JsonObject>()
             .let { obj ->
                 try {

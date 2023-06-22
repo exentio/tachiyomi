@@ -13,7 +13,6 @@ import android.os.Looper
 import android.webkit.WebView
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.getSystemService
-import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
@@ -24,7 +23,6 @@ import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
 import coil.disk.DiskCache
 import coil.util.DebugLogger
-import eu.kanade.data.DatabaseHandler
 import eu.kanade.domain.DomainModule
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.ui.UiPreferences
@@ -37,22 +35,21 @@ import eu.kanade.tachiyomi.data.coil.MangaCoverKeyer
 import eu.kanade.tachiyomi.data.coil.MangaKeyer
 import eu.kanade.tachiyomi.data.coil.TachiyomiImageDecoder
 import eu.kanade.tachiyomi.data.notification.Notifications
-import eu.kanade.tachiyomi.glance.UpdatesGridGlanceWidget
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.NetworkPreferences
 import eu.kanade.tachiyomi.ui.base.delegate.SecureActivityDelegate
 import eu.kanade.tachiyomi.util.system.WebViewUtil
 import eu.kanade.tachiyomi.util.system.animatorDurationScale
-import eu.kanade.tachiyomi.util.system.logcat
 import eu.kanade.tachiyomi.util.system.notification
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import logcat.AndroidLogcatLogger
 import logcat.LogPriority
 import logcat.LogcatLogger
 import org.conscrypt.Conscrypt
+import tachiyomi.core.util.system.logcat
+import tachiyomi.presentation.widget.TachiyomiWidgetManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
@@ -121,17 +118,9 @@ class App : Application(), DefaultLifecycleObserver, ImageLoaderFactory {
         setAppCompatDelegateThemeMode(Injekt.get<UiPreferences>().themeMode().get())
 
         // Updates widget update
-        Injekt.get<DatabaseHandler>()
-            .subscribeToList { updatesViewQueries.updates(after = UpdatesGridGlanceWidget.DateLimit.timeInMillis) }
-            .drop(1)
-            .distinctUntilChanged()
-            .onEach {
-                val manager = GlanceAppWidgetManager(this)
-                if (manager.getGlanceIds(UpdatesGridGlanceWidget::class.java).isNotEmpty()) {
-                    UpdatesGridGlanceWidget().loadData(it)
-                }
-            }
-            .launchIn(ProcessLifecycleOwner.get().lifecycleScope)
+        with(TachiyomiWidgetManager(Injekt.get())) {
+            init(ProcessLifecycleOwner.get().lifecycleScope)
+        }
 
         if (!LogcatLogger.isInstalled && networkPreferences.verboseLogging().get()) {
             LogcatLogger.install(AndroidLogcatLogger(LogPriority.VERBOSE))
@@ -161,6 +150,11 @@ class App : Application(), DefaultLifecycleObserver, ImageLoaderFactory {
             crossfade((300 * this@App.animatorDurationScale).toInt())
             allowRgb565(getSystemService<ActivityManager>()!!.isLowRamDevice)
             if (networkPreferences.verboseLogging().get()) logger(DebugLogger())
+
+            // Coil spawns a new thread for every image load by default
+            fetcherDispatcher(Dispatchers.IO.limitedParallelism(8))
+            decoderDispatcher(Dispatchers.IO.limitedParallelism(2))
+            transformationDispatcher(Dispatchers.IO.limitedParallelism(2))
         }.build()
     }
 

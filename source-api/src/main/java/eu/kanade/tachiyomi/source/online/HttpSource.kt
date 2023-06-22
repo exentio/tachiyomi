@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.source.online
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.asObservableSuccess
+import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.newCachelessCallWithProgress
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.model.FilterList
@@ -306,6 +307,17 @@ abstract class HttpSource : CatalogueSource {
     }
 
     /**
+     * Returns the response of the source image.
+     *
+     * @param page the page whose source image has to be downloaded.
+     */
+    suspend fun getImage(page: Page): Response {
+        // images will be cached or saved manually, so don't take up network cache
+        return client.newCachelessCallWithProgress(imageRequest(page), page)
+            .awaitSuccess()
+    }
+
+    /**
      * Returns the request for getting the source image. Override only if it's needed to override
      * the url, send different headers or request method like POST.
      *
@@ -375,11 +387,7 @@ abstract class HttpSource : CatalogueSource {
      * @return url of the chapter
      */
     open fun getChapterUrl(chapter: SChapter): String {
-        return if (chapter.url.startsWith("http")) {
-            chapter.url
-        } else {
-            baseUrl + chapter.url
-        }
+        return pageListRequest(chapter).url.toString()
     }
 
     /**

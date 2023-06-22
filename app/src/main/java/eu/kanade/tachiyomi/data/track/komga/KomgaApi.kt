@@ -4,10 +4,8 @@ import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.network.GET
-import eu.kanade.tachiyomi.network.await
+import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.parseAs
-import eu.kanade.tachiyomi.util.lang.withIOContext
-import eu.kanade.tachiyomi.util.system.logcat
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import logcat.LogPriority
@@ -15,6 +13,8 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import tachiyomi.core.util.lang.withIOContext
+import tachiyomi.core.util.system.logcat
 import uy.kohesive.injekt.injectLazy
 
 const val READLIST_API = "/api/v1/readlists"
@@ -28,19 +28,19 @@ class KomgaApi(private val client: OkHttpClient) {
             try {
                 val track = if (url.contains(READLIST_API)) {
                     client.newCall(GET(url))
-                        .await()
+                        .awaitSuccess()
                         .parseAs<ReadListDto>()
                         .toTrack()
                 } else {
                     client.newCall(GET(url))
-                        .await()
+                        .awaitSuccess()
                         .parseAs<SeriesDto>()
                         .toTrack()
                 }
 
                 val progress = client
                     .newCall(GET("${url.replace("/api/v1/series/", "/api/v2/series/")}/read-progress/tachiyomi"))
-                    .await().let {
+                    .awaitSuccess().let {
                         if (url.contains("/api/v1/series/")) {
                             it.parseAs<ReadProgressV2Dto>()
                         } else {
@@ -77,7 +77,7 @@ class KomgaApi(private val client: OkHttpClient) {
                 .put(payload.toRequestBody("application/json".toMediaType()))
                 .build(),
         )
-            .await()
+            .awaitSuccess()
         return getTrackSearch(track.tracking_url)
     }
 

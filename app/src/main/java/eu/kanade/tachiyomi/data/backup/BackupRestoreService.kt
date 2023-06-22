@@ -12,7 +12,6 @@ import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.util.system.acquireWakeLock
 import eu.kanade.tachiyomi.util.system.getParcelableExtraCompat
 import eu.kanade.tachiyomi.util.system.isServiceRunning
-import eu.kanade.tachiyomi.util.system.logcat
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,6 +19,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import logcat.LogPriority
+import tachiyomi.core.util.system.logcat
 
 /**
  * Restores backup.
@@ -44,12 +44,12 @@ class BackupRestoreService : Service() {
          * @param uri path of Uri
          */
         fun start(context: Context, uri: Uri) {
-            if (!isRunning(context)) {
-                val intent = Intent(context, BackupRestoreService::class.java).apply {
-                    putExtra(BackupConst.EXTRA_URI, uri)
-                }
-                ContextCompat.startForegroundService(context, intent)
+            if (isRunning(context)) return
+
+            val intent = Intent(context, BackupRestoreService::class.java).apply {
+                putExtra(BackupConst.EXTRA_URI, uri)
             }
+            ContextCompat.startForegroundService(context, intent)
         }
 
         /**
@@ -69,14 +69,12 @@ class BackupRestoreService : Service() {
      */
     private lateinit var wakeLock: PowerManager.WakeLock
 
-    private lateinit var ioScope: CoroutineScope
+    private lateinit var scope: CoroutineScope
     private var restorer: BackupRestorer? = null
     private lateinit var notifier: BackupNotifier
 
     override fun onCreate() {
-        super.onCreate()
-
-        ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         notifier = BackupNotifier(this)
         wakeLock = acquireWakeLock(javaClass.name)
 
@@ -90,12 +88,11 @@ class BackupRestoreService : Service() {
 
     override fun onDestroy() {
         destroyJob()
-        super.onDestroy()
     }
 
     private fun destroyJob() {
         restorer?.job?.cancel()
-        ioScope.cancel()
+        scope.cancel()
         if (wakeLock.isHeld) {
             wakeLock.release()
         }
@@ -129,7 +126,7 @@ class BackupRestoreService : Service() {
             notifier.showRestoreError(exception.message)
             stopSelf(startId)
         }
-        val job = ioScope.launch(handler) {
+        val job = scope.launch(handler) {
             if (restorer?.restoreBackup(uri) == false) {
                 notifier.showRestoreError(getString(R.string.restoring_backup_canceled))
             }

@@ -11,6 +11,7 @@ pluginManagement {
         gradlePluginPortal()
         google()
         mavenCentral()
+        maven(url = "https://www.jitpack.io")
     }
 }
 
@@ -40,3 +41,7 @@ include(":i18n")
 include(":source-api")
 include(":core")
 include(":macrobenchmark")
+include(":data")
+include(":domain")
+include(":presentation-widget")
+include(":presentation-core")

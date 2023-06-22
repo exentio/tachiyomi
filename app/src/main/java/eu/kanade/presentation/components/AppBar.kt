@@ -44,8 +44,11 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import eu.kanade.presentation.util.runOnEnterKeyPressed
 import eu.kanade.presentation.util.secondaryItemAlpha
 import eu.kanade.tachiyomi.R
+
+const val SEARCH_DEBOUNCE_MILLIS = 250L
 
 @Composable
 fun AppBar(
@@ -62,9 +65,6 @@ fun AppBar(
     actionModeCounter: Int = 0,
     onCancelActionMode: () -> Unit = {},
     actionModeActions: @Composable RowScope.() -> Unit = {},
-    // Banners
-    downloadedOnlyMode: Boolean = false,
-    incognitoMode: Boolean = false,
 
     scrollBehavior: TopAppBarScrollBehavior? = null,
 ) {
@@ -92,8 +92,6 @@ fun AppBar(
         },
         isActionMode = isActionMode,
         onCancelActionMode = onCancelActionMode,
-        downloadedOnlyMode = downloadedOnlyMode,
-        incognitoMode = incognitoMode,
         scrollBehavior = scrollBehavior,
     )
 }
@@ -111,9 +109,6 @@ fun AppBar(
     // Action mode
     isActionMode: Boolean = false,
     onCancelActionMode: () -> Unit = {},
-    // Banners
-    downloadedOnlyMode: Boolean = false,
-    incognitoMode: Boolean = false,
 
     scrollBehavior: TopAppBarScrollBehavior? = null,
 ) {
@@ -149,8 +144,6 @@ fun AppBar(
             ),
             scrollBehavior = scrollBehavior,
         )
-
-        AppStateBanners(downloadedOnlyMode, incognitoMode)
     }
 }
 
@@ -235,8 +228,6 @@ fun SearchToolbar(
     onSearch: (String) -> Unit = {},
     onClickCloseSearch: () -> Unit = { onChangeSearchQuery(null) },
     actions: @Composable RowScope.() -> Unit = {},
-    incognitoMode: Boolean = false,
-    downloadedOnlyMode: Boolean = false,
     scrollBehavior: TopAppBarScrollBehavior? = null,
     visualTransformation: VisualTransformation = VisualTransformation.None,
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
@@ -251,25 +242,27 @@ fun SearchToolbar(
             val keyboardController = LocalSoftwareKeyboardController.current
             val focusManager = LocalFocusManager.current
 
+            val searchAndClearFocus: () -> Unit = f@{
+                if (searchQuery.isBlank()) return@f
+                onSearch(searchQuery)
+                focusManager.clearFocus()
+                keyboardController?.hide()
+            }
+
             BasicTextField(
                 value = searchQuery,
                 onValueChange = onChangeSearchQuery,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .focusRequester(focusRequester),
+                    .focusRequester(focusRequester)
+                    .runOnEnterKeyPressed(action = searchAndClearFocus),
                 textStyle = MaterialTheme.typography.titleMedium.copy(
                     color = MaterialTheme.colorScheme.onBackground,
                     fontWeight = FontWeight.Normal,
                     fontSize = 18.sp,
                 ),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(
-                    onSearch = {
-                        onSearch(searchQuery)
-                        focusManager.clearFocus()
-                        keyboardController?.hide()
-                    },
-                ),
+                keyboardActions = KeyboardActions(onSearch = { searchAndClearFocus() }),
                 singleLine = true,
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.onBackground),
                 visualTransformation = visualTransformation,
@@ -324,12 +317,11 @@ fun SearchToolbar(
             key("actions") { actions() }
         },
         isActionMode = false,
-        downloadedOnlyMode = downloadedOnlyMode,
-        incognitoMode = incognitoMode,
         scrollBehavior = scrollBehavior,
     )
     LaunchedEffect(searchClickCount) {
         if (searchQuery == null) return@LaunchedEffect
+        if (searchClickCount == 0 && searchQuery.isNotEmpty()) return@LaunchedEffect
         try {
             focusRequester.requestFocus()
         } catch (_: Throwable) {

@@ -6,7 +6,6 @@ import android.os.Build
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.extension.model.InstallStep
 import eu.kanade.tachiyomi.util.system.getUriSize
-import eu.kanade.tachiyomi.util.system.logcat
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -15,12 +14,13 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import rikka.shizuku.Shizuku
+import tachiyomi.core.util.system.logcat
 import java.io.BufferedReader
 import java.io.InputStream
 
 class ShizukuInstaller(private val service: Service) : Installer(service) {
 
-    private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val shizukuDeadListener = Shizuku.OnBinderDeadListener {
         logcat { "Shizuku was killed prematurely" }
@@ -46,7 +46,7 @@ class ShizukuInstaller(private val service: Service) : Installer(service) {
     @Suppress("BlockingMethodInNonBlockingContext")
     override fun processEntry(entry: Entry) {
         super.processEntry(entry)
-        ioScope.launch {
+        scope.launch {
             var sessionId: String? = null
             try {
                 val size = service.getUriSize(entry.uri) ?: throw IllegalStateException()
@@ -88,7 +88,7 @@ class ShizukuInstaller(private val service: Service) : Installer(service) {
     override fun onDestroy() {
         Shizuku.removeBinderDeadListener(shizukuDeadListener)
         Shizuku.removeRequestPermissionResultListener(shizukuPermissionListener)
-        ioScope.cancel()
+        scope.cancel()
         super.onDestroy()
     }
 
@@ -116,7 +116,7 @@ class ShizukuInstaller(private val service: Service) : Installer(service) {
                 false
             }
         } else {
-            logcat(LogPriority.ERROR) { "Shizuku is not ready to use." }
+            logcat(LogPriority.ERROR) { "Shizuku is not ready to use" }
             service.toast(R.string.ext_installer_shizuku_stopped)
             service.stopSelf()
             false

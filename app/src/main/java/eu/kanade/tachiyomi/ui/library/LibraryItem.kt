@@ -1,8 +1,8 @@
 package eu.kanade.tachiyomi.ui.library
 
-import eu.kanade.domain.library.model.LibraryManga
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.getNameForMangaInfo
+import tachiyomi.domain.library.model.LibraryManga
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -18,12 +18,12 @@ class LibraryItem(
     var sourceLanguage = ""
 
     /**
-     * Filters a manga depending on a query.
+     * Checks if a query matches the manga
      *
-     * @param constraint the query to apply.
-     * @return true if the manga should be included, false otherwise.
+     * @param constraint the query to check.
+     * @return true if the manga matches the query, false otherwise.
      */
-    fun filter(constraint: String): Boolean {
+    fun matches(constraint: String): Boolean {
         val sourceName by lazy { sourceManager.getOrStub(libraryManga.manga.source).getNameForMangaInfo() }
         val genres by lazy { libraryManga.manga.genre }
         return libraryManga.manga.title.contains(constraint, true) ||

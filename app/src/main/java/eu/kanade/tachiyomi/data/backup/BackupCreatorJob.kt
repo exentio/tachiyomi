@@ -6,6 +6,7 @@ import androidx.core.net.toUri
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
+import androidx.work.ForegroundInfo
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkInfo
@@ -15,9 +16,9 @@ import androidx.work.workDataOf
 import com.hippo.unifile.UniFile
 import eu.kanade.domain.backup.service.BackupPreferences
 import eu.kanade.tachiyomi.data.notification.Notifications
-import eu.kanade.tachiyomi.util.system.logcat
 import eu.kanade.tachiyomi.util.system.notificationManager
 import logcat.LogPriority
+import tachiyomi.core.util.system.logcat
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.util.concurrent.TimeUnit
@@ -25,13 +26,20 @@ import java.util.concurrent.TimeUnit
 class BackupCreatorJob(private val context: Context, workerParams: WorkerParameters) :
     CoroutineWorker(context, workerParams) {
 
+    private val notifier = BackupNotifier(context)
+
     override suspend fun doWork(): Result {
         val backupPreferences = Injekt.get<BackupPreferences>()
-        val notifier = BackupNotifier(context)
         val uri = inputData.getString(LOCATION_URI_KEY)?.toUri()
             ?: backupPreferences.backupsDirectory().get().toUri()
         val flags = inputData.getInt(BACKUP_FLAGS_KEY, BackupConst.BACKUP_ALL)
         val isAutoBackup = inputData.getBoolean(IS_AUTO_BACKUP_KEY, true)
+
+        try {
+            setForeground(getForegroundInfo())
+        } catch (e: IllegalStateException) {
+            logcat(LogPriority.ERROR, e) { "Not allowed to run on foreground service" }
+        }
 
         context.notificationManager.notify(Notifications.ID_BACKUP_PROGRESS, notifier.showBackupProgress().build())
         return try {
@@ -45,6 +53,10 @@ class BackupCreatorJob(private val context: Context, workerParams: WorkerParamet
         } finally {
             context.notificationManager.cancel(Notifications.ID_BACKUP_PROGRESS)
         }
+    }
+
+    override suspend fun getForegroundInfo(): ForegroundInfo {
+        return ForegroundInfo(Notifications.ID_BACKUP_PROGRESS, notifier.showBackupProgress().build())
     }
 
     companion object {
@@ -68,7 +80,7 @@ class BackupCreatorJob(private val context: Context, workerParams: WorkerParamet
                     .setInputData(workDataOf(IS_AUTO_BACKUP_KEY to true))
                     .build()
 
-                workManager.enqueueUniquePeriodicWork(TAG_AUTO, ExistingPeriodicWorkPolicy.REPLACE, request)
+                workManager.enqueueUniquePeriodicWork(TAG_AUTO, ExistingPeriodicWorkPolicy.UPDATE, request)
             } else {
                 workManager.cancelUniqueWork(TAG_AUTO)
             }

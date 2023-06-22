@@ -22,9 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import eu.kanade.domain.source.interactor.SetMigrateSorting
-import eu.kanade.domain.source.model.Source
 import eu.kanade.presentation.browse.components.BaseSourceItem
 import eu.kanade.presentation.browse.components.SourceIcon
 import eu.kanade.presentation.components.Badge
@@ -34,40 +32,43 @@ import eu.kanade.presentation.components.LoadingScreen
 import eu.kanade.presentation.components.ScrollbarLazyColumn
 import eu.kanade.presentation.components.Scroller.STICKY_HEADER_KEY_PREFIX
 import eu.kanade.presentation.theme.header
-import eu.kanade.presentation.util.horizontalPadding
+import eu.kanade.presentation.util.padding
 import eu.kanade.presentation.util.plus
 import eu.kanade.presentation.util.secondaryItemAlpha
-import eu.kanade.presentation.util.topPaddingValues
+import eu.kanade.presentation.util.topSmallPaddingValues
 import eu.kanade.tachiyomi.R
-import eu.kanade.tachiyomi.ui.browse.migration.sources.MigrationSourcesPresenter
+import eu.kanade.tachiyomi.ui.browse.migration.sources.MigrateSourceState
 import eu.kanade.tachiyomi.util.system.copyToClipboard
+import tachiyomi.domain.source.model.Source
 
 @Composable
 fun MigrateSourceScreen(
-    presenter: MigrationSourcesPresenter,
+    state: MigrateSourceState,
     contentPadding: PaddingValues,
     onClickItem: (Source) -> Unit,
+    onToggleSortingDirection: () -> Unit,
+    onToggleSortingMode: () -> Unit,
 ) {
     val context = LocalContext.current
     when {
-        presenter.isLoading -> LoadingScreen()
-        presenter.isEmpty -> EmptyScreen(
+        state.isLoading -> LoadingScreen(modifier = Modifier.padding(contentPadding))
+        state.isEmpty -> EmptyScreen(
             textResource = R.string.information_empty_library,
             modifier = Modifier.padding(contentPadding),
         )
         else ->
             MigrateSourceList(
-                list = presenter.items,
+                list = state.items,
                 contentPadding = contentPadding,
                 onClickItem = onClickItem,
                 onLongClickItem = { source ->
                     val sourceId = source.id.toString()
                     context.copyToClipboard(sourceId, sourceId)
                 },
-                sortingMode = presenter.sortingMode,
-                onToggleSortingMode = { presenter.toggleSortingMode() },
-                sortingDirection = presenter.sortingDirection,
-                onToggleSortingDirection = { presenter.toggleSortingDirection() },
+                sortingMode = state.sortingMode,
+                onToggleSortingMode = onToggleSortingMode,
+                sortingDirection = state.sortingDirection,
+                onToggleSortingDirection = onToggleSortingDirection,
             )
     }
 }
@@ -84,13 +85,13 @@ private fun MigrateSourceList(
     onToggleSortingDirection: () -> Unit,
 ) {
     ScrollbarLazyColumn(
-        contentPadding = contentPadding + topPaddingValues,
+        contentPadding = contentPadding + topSmallPaddingValues,
     ) {
         stickyHeader(key = STICKY_HEADER_KEY_PREFIX) {
             Row(
                 modifier = Modifier
                     .background(MaterialTheme.colorScheme.background)
-                    .padding(start = horizontalPadding),
+                    .padding(start = MaterialTheme.padding.medium),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
@@ -152,7 +153,7 @@ private fun MigrateSourceItem(
         content = { _, sourceLangString ->
             Column(
                 modifier = Modifier
-                    .padding(horizontal = horizontalPadding)
+                    .padding(horizontal = MaterialTheme.padding.medium)
                     .weight(1f),
             ) {
                 Text(
@@ -162,7 +163,7 @@ private fun MigrateSourceItem(
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (sourceLangString != null) {

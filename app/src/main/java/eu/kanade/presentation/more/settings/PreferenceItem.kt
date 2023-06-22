@@ -22,8 +22,8 @@ import eu.kanade.presentation.more.settings.widget.SwitchPreferenceWidget
 import eu.kanade.presentation.more.settings.widget.TextPreferenceWidget
 import eu.kanade.presentation.more.settings.widget.TrackingPreferenceWidget
 import eu.kanade.presentation.util.collectAsState
-import eu.kanade.tachiyomi.core.preference.PreferenceStore
 import kotlinx.coroutines.launch
+import tachiyomi.core.preference.PreferenceStore
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -156,9 +156,7 @@ internal fun PreferenceItem(
                     .collectAsState()
                 item.service.run {
                     TrackingPreferenceWidget(
-                        title = item.title,
-                        logoRes = getLogo(),
-                        logoColor = getLogoColor(),
+                        service = this,
                         checked = uName.isNotEmpty(),
                         onClick = { if (isLogged) item.logout() else item.login() },
                     )

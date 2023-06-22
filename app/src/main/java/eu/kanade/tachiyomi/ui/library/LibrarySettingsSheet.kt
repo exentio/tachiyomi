@@ -1,39 +1,38 @@
 package eu.kanade.tachiyomi.ui.library
 
+import android.app.Activity
 import android.content.Context
 import android.util.AttributeSet
 import android.view.View
-import com.bluelinelabs.conductor.Router
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.category.interactor.SetDisplayModeForCategory
 import eu.kanade.domain.category.interactor.SetSortModeForCategory
-import eu.kanade.domain.category.model.Category
-import eu.kanade.domain.library.model.LibraryDisplayMode
-import eu.kanade.domain.library.model.LibrarySort
-import eu.kanade.domain.library.model.display
-import eu.kanade.domain.library.model.sort
 import eu.kanade.domain.library.service.LibraryPreferences
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.data.track.TrackService
-import eu.kanade.tachiyomi.util.lang.launchIO
 import eu.kanade.tachiyomi.widget.ExtendedNavigationView
 import eu.kanade.tachiyomi.widget.ExtendedNavigationView.Item.TriStateGroup.State
 import eu.kanade.tachiyomi.widget.sheet.TabbedBottomSheetDialog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import tachiyomi.core.util.lang.launchIO
+import tachiyomi.domain.category.model.Category
+import tachiyomi.domain.library.model.LibraryDisplayMode
+import tachiyomi.domain.library.model.LibrarySort
+import tachiyomi.domain.library.model.display
+import tachiyomi.domain.library.model.sort
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
 
 class LibrarySettingsSheet(
-    router: Router,
+    activity: Activity,
     private val trackManager: TrackManager = Injekt.get(),
     private val setDisplayModeForCategory: SetDisplayModeForCategory = Injekt.get(),
     private val setSortModeForCategory: SetSortModeForCategory = Injekt.get(),
-    onGroupClickListener: (ExtendedNavigationView.Group) -> Unit,
-) : TabbedBottomSheetDialog(router.activity!!) {
+) : TabbedBottomSheetDialog(activity) {
 
     val filters: Filter
     private val sort: Sort
@@ -42,14 +41,9 @@ class LibrarySettingsSheet(
     val sheetScope = CoroutineScope(Job() + Dispatchers.IO)
 
     init {
-        filters = Filter(router.activity!!)
-        filters.onGroupClicked = onGroupClickListener
-
-        sort = Sort(router.activity!!)
-        sort.onGroupClicked = onGroupClickListener
-
-        display = Display(router.activity!!)
-        display.onGroupClicked = onGroupClickListener
+        filters = Filter(activity)
+        sort = Sort(activity)
+        display = Display(activity)
     }
 
     /**
@@ -57,10 +51,14 @@ class LibrarySettingsSheet(
      * @param currentCategory ID of currently shown category
      */
     fun show(currentCategory: Category) {
+        filters.adjustFilterSelection()
+
         sort.currentCategory = currentCategory
         sort.adjustDisplaySelection()
+
         display.currentCategory = currentCategory
         display.adjustDisplaySelection()
+
         super.show()
     }
 
@@ -88,6 +86,12 @@ class LibrarySettingsSheet(
             setGroups(listOf(filterGroup))
         }
 
+        // Refreshes Filter Setting selections
+        fun adjustFilterSelection() {
+            filterGroup.initModels()
+            filterGroup.items.forEach { adapter.notifyItemChanged(it) }
+        }
+
         /**
          * Returns true if there's at least one filter from [FilterGroup] active.
          */
@@ -97,9 +101,9 @@ class LibrarySettingsSheet(
 
         inner class FilterGroup : Group {
 
-            private val downloaded = Item.TriStateGroup(R.string.action_filter_downloaded, this)
+            private val downloaded = Item.TriStateGroup(R.string.label_downloaded, this)
             private val unread = Item.TriStateGroup(R.string.action_filter_unread, this)
-            private val started = Item.TriStateGroup(R.string.action_filter_started, this)
+            private val started = Item.TriStateGroup(R.string.label_started, this)
             private val bookmarked = Item.TriStateGroup(R.string.action_filter_bookmarked, this)
             private val completed = Item.TriStateGroup(R.string.completed, this)
             private val trackFilters: Map<Long, Item.TriStateGroup>
@@ -132,6 +136,7 @@ class LibrarySettingsSheet(
                     downloaded.enabled = false
                 } else {
                     downloaded.state = libraryPreferences.filterDownloaded().get()
+                    downloaded.enabled = true
                 }
                 unread.state = libraryPreferences.filterUnread().get()
                 started.state = libraryPreferences.filterStarted().get()
@@ -282,12 +287,14 @@ class LibrarySettingsSheet(
         private val displayGroup: DisplayGroup
         private val badgeGroup: BadgeGroup
         private val tabsGroup: TabsGroup
+        private val otherGroup: OtherGroup
 
         init {
             displayGroup = DisplayGroup()
             badgeGroup = BadgeGroup()
             tabsGroup = TabsGroup()
-            setGroups(listOf(displayGroup, badgeGroup, tabsGroup))
+            otherGroup = OtherGroup()
+            setGroups(listOf(displayGroup, badgeGroup, tabsGroup, otherGroup))
         }
 
         // Refreshes Display Setting selections
@@ -355,17 +362,15 @@ class LibrarySettingsSheet(
 
         inner class BadgeGroup : Group {
             private val downloadBadge = Item.CheckboxGroup(R.string.action_display_download_badge, this)
-            private val unreadBadge = Item.CheckboxGroup(R.string.action_display_unread_badge, this)
             private val localBadge = Item.CheckboxGroup(R.string.action_display_local_badge, this)
             private val languageBadge = Item.CheckboxGroup(R.string.action_display_language_badge, this)
 
             override val header = Item.Header(R.string.badges_header)
-            override val items = listOf(downloadBadge, unreadBadge, localBadge, languageBadge)
+            override val items = listOf(downloadBadge, localBadge, languageBadge)
             override val footer = null
 
             override fun initModels() {
                 downloadBadge.checked = libraryPreferences.downloadBadge().get()
-                unreadBadge.checked = libraryPreferences.unreadBadge().get()
                 localBadge.checked = libraryPreferences.localBadge().get()
                 languageBadge.checked = libraryPreferences.languageBadge().get()
             }
@@ -375,7 +380,6 @@ class LibrarySettingsSheet(
                 item.checked = !item.checked
                 when (item) {
                     downloadBadge -> libraryPreferences.downloadBadge().set((item.checked))
-                    unreadBadge -> libraryPreferences.unreadBadge().set((item.checked))
                     localBadge -> libraryPreferences.localBadge().set((item.checked))
                     languageBadge -> libraryPreferences.languageBadge().set((item.checked))
                     else -> {}
@@ -403,6 +407,28 @@ class LibrarySettingsSheet(
                 when (item) {
                     showTabs -> libraryPreferences.categoryTabs().set(item.checked)
                     showNumberOfItems -> libraryPreferences.categoryNumberOfItems().set(item.checked)
+                    else -> {}
+                }
+                adapter.notifyItemChanged(item)
+            }
+        }
+
+        inner class OtherGroup : Group {
+            private val showContinueReadingButton = Item.CheckboxGroup(R.string.action_display_show_continue_reading_button, this)
+
+            override val header = Item.Header(R.string.other_header)
+            override val items = listOf(showContinueReadingButton)
+            override val footer = null
+
+            override fun initModels() {
+                showContinueReadingButton.checked = libraryPreferences.showContinueReadingButton().get()
+            }
+
+            override fun onItemClicked(item: Item) {
+                item as Item.CheckboxGroup
+                item.checked = !item.checked
+                when (item) {
+                    showContinueReadingButton -> libraryPreferences.showContinueReadingButton().set(item.checked)
                     else -> {}
                 }
                 adapter.notifyItemChanged(item)

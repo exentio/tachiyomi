@@ -39,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -46,13 +47,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.util.fastAll
 import androidx.compose.ui.util.fastAny
 import androidx.compose.ui.util.fastMap
-import eu.kanade.domain.chapter.model.Chapter
+import eu.kanade.domain.manga.model.chaptersFiltered
 import eu.kanade.presentation.components.ChapterDownloadAction
 import eu.kanade.presentation.components.ExtendedFloatingActionButton
 import eu.kanade.presentation.components.LazyColumn
 import eu.kanade.presentation.components.MangaBottomActionMenu
+import eu.kanade.presentation.components.PullRefresh
 import eu.kanade.presentation.components.Scaffold
-import eu.kanade.presentation.components.SwipeRefresh
 import eu.kanade.presentation.components.TwoPanelBox
 import eu.kanade.presentation.components.VerticalFastScroller
 import eu.kanade.presentation.manga.components.ChapterHeader
@@ -69,17 +70,26 @@ import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.getNameForMangaInfo
 import eu.kanade.tachiyomi.ui.manga.ChapterItem
 import eu.kanade.tachiyomi.ui.manga.MangaScreenState
+import eu.kanade.tachiyomi.ui.manga.chapterDecimalFormat
+import eu.kanade.tachiyomi.util.lang.toRelativeString
+import tachiyomi.domain.chapter.model.Chapter
+import tachiyomi.domain.manga.model.Manga
+import java.text.DateFormat
+import java.util.Date
 
 @Composable
 fun MangaScreen(
     state: MangaScreenState.Success,
     snackbarHostState: SnackbarHostState,
+    dateRelativeTime: Int,
+    dateFormat: DateFormat,
     isTabletUi: Boolean,
     onBackClicked: () -> Unit,
     onChapterClicked: (Chapter) -> Unit,
     onDownloadChapter: ((List<ChapterItem>, ChapterDownloadAction) -> Unit)?,
     onAddToLibraryClicked: () -> Unit,
     onWebViewClicked: (() -> Unit)?,
+    onWebViewLongClicked: (() -> Unit)?,
     onTrackingClicked: (() -> Unit)?,
     onTagClicked: (String) -> Unit,
     onFilterButtonClicked: () -> Unit,
@@ -111,11 +121,14 @@ fun MangaScreen(
         MangaScreenSmallImpl(
             state = state,
             snackbarHostState = snackbarHostState,
+            dateRelativeTime = dateRelativeTime,
+            dateFormat = dateFormat,
             onBackClicked = onBackClicked,
             onChapterClicked = onChapterClicked,
             onDownloadChapter = onDownloadChapter,
             onAddToLibraryClicked = onAddToLibraryClicked,
             onWebViewClicked = onWebViewClicked,
+            onWebViewLongClicked = onWebViewLongClicked,
             onTrackingClicked = onTrackingClicked,
             onTagClicked = onTagClicked,
             onFilterClicked = onFilterButtonClicked,
@@ -139,11 +152,14 @@ fun MangaScreen(
         MangaScreenLargeImpl(
             state = state,
             snackbarHostState = snackbarHostState,
+            dateRelativeTime = dateRelativeTime,
+            dateFormat = dateFormat,
             onBackClicked = onBackClicked,
             onChapterClicked = onChapterClicked,
             onDownloadChapter = onDownloadChapter,
             onAddToLibraryClicked = onAddToLibraryClicked,
             onWebViewClicked = onWebViewClicked,
+            onWebViewLongClicked = onWebViewLongClicked,
             onTrackingClicked = onTrackingClicked,
             onTagClicked = onTagClicked,
             onFilterButtonClicked = onFilterButtonClicked,
@@ -170,11 +186,14 @@ fun MangaScreen(
 private fun MangaScreenSmallImpl(
     state: MangaScreenState.Success,
     snackbarHostState: SnackbarHostState,
+    dateRelativeTime: Int,
+    dateFormat: DateFormat,
     onBackClicked: () -> Unit,
     onChapterClicked: (Chapter) -> Unit,
     onDownloadChapter: ((List<ChapterItem>, ChapterDownloadAction) -> Unit)?,
     onAddToLibraryClicked: () -> Unit,
     onWebViewClicked: (() -> Unit)?,
+    onWebViewLongClicked: (() -> Unit)?,
     onTrackingClicked: (() -> Unit)?,
     onTagClicked: (String) -> Unit,
     onFilterClicked: () -> Unit,
@@ -234,8 +253,6 @@ private fun MangaScreenSmallImpl(
                 titleAlphaProvider = { animatedTitleAlpha },
                 backgroundAlphaProvider = { animatedBgAlpha },
                 hasFilters = state.manga.chaptersFiltered(),
-                incognitoMode = state.isIncognitoMode,
-                downloadedOnlyMode = state.isDownloadedOnlyMode,
                 onBackClicked = internalOnBackPressed,
                 onClickFilter = onFilterClicked,
                 onClickShare = onShareClicked,
@@ -283,7 +300,7 @@ private fun MangaScreenSmallImpl(
     ) { contentPadding ->
         val topPadding = contentPadding.calculateTopPadding()
 
-        SwipeRefresh(
+        PullRefresh(
             refreshing = state.isRefreshingData,
             onRefresh = onRefresh,
             enabled = chapters.fastAll { !it.selected },
@@ -332,6 +349,7 @@ private fun MangaScreenSmallImpl(
                             trackingCount = state.trackingCount,
                             onAddToLibraryClicked = onAddToLibraryClicked,
                             onWebViewClicked = onWebViewClicked,
+                            onWebViewLongClicked = onWebViewLongClicked,
                             onTrackingClicked = onTrackingClicked,
                             onEditCategory = onEditCategoryClicked,
                         )
@@ -361,7 +379,10 @@ private fun MangaScreenSmallImpl(
                     }
 
                     sharedChapterItems(
+                        manga = state.manga,
                         chapters = chapters,
+                        dateRelativeTime = dateRelativeTime,
+                        dateFormat = dateFormat,
                         onChapterClicked = onChapterClicked,
                         onDownloadChapter = onDownloadChapter,
                         onChapterSelected = onChapterSelected,
@@ -376,11 +397,14 @@ private fun MangaScreenSmallImpl(
 fun MangaScreenLargeImpl(
     state: MangaScreenState.Success,
     snackbarHostState: SnackbarHostState,
+    dateRelativeTime: Int,
+    dateFormat: DateFormat,
     onBackClicked: () -> Unit,
     onChapterClicked: (Chapter) -> Unit,
     onDownloadChapter: ((List<ChapterItem>, ChapterDownloadAction) -> Unit)?,
     onAddToLibraryClicked: () -> Unit,
     onWebViewClicked: (() -> Unit)?,
+    onWebViewLongClicked: (() -> Unit)?,
     onTrackingClicked: (() -> Unit)?,
     onTagClicked: (String) -> Unit,
     onFilterButtonClicked: () -> Unit,
@@ -415,7 +439,7 @@ fun MangaScreenLargeImpl(
 
     val insetPadding = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal).asPaddingValues()
     var topBarHeight by remember { mutableStateOf(0) }
-    SwipeRefresh(
+    PullRefresh(
         refreshing = state.isRefreshingData,
         onRefresh = onRefresh,
         enabled = chapters.fastAll { !it.selected },
@@ -444,8 +468,6 @@ fun MangaScreenLargeImpl(
                     titleAlphaProvider = { if (chapters.fastAny { it.selected }) 1f else 0f },
                     backgroundAlphaProvider = { 1f },
                     hasFilters = state.manga.chaptersFiltered(),
-                    incognitoMode = state.isIncognitoMode,
-                    downloadedOnlyMode = state.isDownloadedOnlyMode,
                     onBackClicked = internalOnBackPressed,
                     onClickFilter = onFilterButtonClicked,
                     onClickShare = onShareClicked,
@@ -525,6 +547,7 @@ fun MangaScreenLargeImpl(
                             trackingCount = state.trackingCount,
                             onAddToLibraryClicked = onAddToLibraryClicked,
                             onWebViewClicked = onWebViewClicked,
+                            onWebViewLongClicked = onWebViewLongClicked,
                             onTrackingClicked = onTrackingClicked,
                             onEditCategory = onEditCategoryClicked,
                         )
@@ -561,7 +584,10 @@ fun MangaScreenLargeImpl(
                             }
 
                             sharedChapterItems(
+                                manga = state.manga,
                                 chapters = chapters,
+                                dateRelativeTime = dateRelativeTime,
+                                dateFormat = dateFormat,
                                 onChapterClicked = onChapterClicked,
                                 onDownloadChapter = onDownloadChapter,
                                 onChapterSelected = onChapterSelected,
@@ -617,7 +643,10 @@ private fun SharedMangaBottomActionMenu(
 }
 
 private fun LazyListScope.sharedChapterItems(
+    manga: Manga,
     chapters: List<ChapterItem>,
+    dateRelativeTime: Int,
+    dateFormat: DateFormat,
     onChapterClicked: (Chapter) -> Unit,
     onDownloadChapter: ((List<ChapterItem>, ChapterDownloadAction) -> Unit)?,
     onChapterSelected: (ChapterItem, Boolean, Boolean, Boolean) -> Unit,
@@ -628,10 +657,34 @@ private fun LazyListScope.sharedChapterItems(
         contentType = { MangaScreenItem.CHAPTER },
     ) { chapterItem ->
         val haptic = LocalHapticFeedback.current
+        val context = LocalContext.current
+
         MangaChapterListItem(
-            title = chapterItem.chapterTitleString,
-            date = chapterItem.dateUploadString,
-            readProgress = chapterItem.readProgressString,
+            title = if (manga.displayMode == Manga.CHAPTER_DISPLAY_NUMBER) {
+                stringResource(
+                    R.string.display_mode_chapter,
+                    chapterDecimalFormat.format(chapterItem.chapter.chapterNumber.toDouble()),
+                )
+            } else {
+                chapterItem.chapter.name
+            },
+            date = chapterItem.chapter.dateUpload
+                .takeIf { it > 0L }
+                ?.let {
+                    Date(it).toRelativeString(
+                        context,
+                        dateRelativeTime,
+                        dateFormat,
+                    )
+                },
+            readProgress = chapterItem.chapter.lastPageRead
+                .takeIf { !chapterItem.chapter.read && it > 0L }
+                ?.let {
+                    stringResource(
+                        R.string.chapter_progress,
+                        it + 1,
+                    )
+                },
             scanlator = chapterItem.chapter.scanlator.takeIf { !it.isNullOrBlank() },
             read = chapterItem.chapter.read,
             bookmark = chapterItem.chapter.bookmark,

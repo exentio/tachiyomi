@@ -1,6 +1,5 @@
 package eu.kanade.presentation.more.settings.widget
 
-import android.content.res.Configuration.UI_MODE_NIGHT_YES
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -38,12 +37,13 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import eu.kanade.domain.ui.model.AppTheme
 import eu.kanade.presentation.components.DIVIDER_ALPHA
 import eu.kanade.presentation.components.MangaCover
 import eu.kanade.presentation.theme.TachiyomiTheme
+import eu.kanade.presentation.util.ThemePreviews
+import eu.kanade.presentation.util.padding
 import eu.kanade.presentation.util.secondaryItemAlpha
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.util.system.DeviceUtil
@@ -81,9 +81,9 @@ private fun AppThemesList(
     LazyRow(
         modifier = Modifier
             .animateContentSize()
-            .padding(vertical = 8.dp),
+            .padding(vertical = MaterialTheme.padding.small),
         contentPadding = PaddingValues(horizontal = PrefsHorizontalPadding),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
     ) {
         items(
             items = appThemes,
@@ -110,7 +110,6 @@ private fun AppThemesList(
                         .fillMaxWidth()
                         .padding(top = 8.dp)
                         .secondaryItemAlpha(),
-                    color = MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center,
                     maxLines = 2,
                     style = MaterialTheme.typography.bodyMedium,
@@ -252,15 +251,7 @@ fun AppThemePreviewItem(
     }
 }
 
-@Preview(
-    name = "light",
-    showBackground = true,
-)
-@Preview(
-    name = "dark",
-    showBackground = true,
-    uiMode = UI_MODE_NIGHT_YES,
-)
+@ThemePreviews
 @Composable
 private fun AppThemesListPreview() {
     var appTheme by remember { mutableStateOf(AppTheme.DEFAULT) }

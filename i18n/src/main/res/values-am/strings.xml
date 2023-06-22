@@ -98,7 +98,6 @@
     <string name="action_pin">ሚስማር</string>
     <string name="action_disable">አሰናክል</string>
     <string name="action_display_show_tabs">የምድብ ትሮችን አሳይ</string>
-    <string name="action_display_unread_badge">ያልተነበቡ ባጆች</string>
     <string name="action_display_download_badge">ባጆችን ያውርዱ</string>
     <string name="action_display_comfortable_grid">ምቹ ፍርግርግ</string>
     <string name="action_display_list">ዝርዝር</string>
@@ -146,7 +145,6 @@
     <string name="action_filter_empty">ማጣሪያውን ያስወግዱ</string>
     <string name="action_filter_unread">ያልተነበበ</string>
     <string name="action_filter_bookmarked">ዕልባት ተደርጓል</string>
-    <string name="action_filter_downloaded">ወርዷል</string>
     <string name="action_filter">ማጣሪያ</string>
     <string name="action_menu">ምናሌ</string>
     <string name="action_settings">ማስተካከያዎች</string>
@@ -262,7 +260,6 @@
     <string name="channel_complete">ተጠናቀቀ</string>
     <string name="channel_progress">እድገት</string>
     <string name="channel_common">የተለመደ</string>
-    <string name="download_notifier_download_finish">ማውረድ ተጠናቅቋል</string>
     <string name="download_notifier_download_paused">ማውረድ ለአፍታ ቆሟል</string>
     <string name="color_filter_r_value">ቀ</string>
     <string name="color_filter_b_value">ቢ</string>

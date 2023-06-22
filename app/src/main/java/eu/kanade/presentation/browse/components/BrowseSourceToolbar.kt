@@ -13,8 +13,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
-import eu.kanade.domain.library.model.LibraryDisplayMode
-import eu.kanade.presentation.browse.BrowseSourceState
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.components.AppBarTitle
@@ -22,13 +20,15 @@ import eu.kanade.presentation.components.DropdownMenu
 import eu.kanade.presentation.components.RadioMenuItem
 import eu.kanade.presentation.components.SearchToolbar
 import eu.kanade.tachiyomi.R
-import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.LocalSource
+import eu.kanade.tachiyomi.source.Source
+import tachiyomi.domain.library.model.LibraryDisplayMode
 
 @Composable
 fun BrowseSourceToolbar(
-    state: BrowseSourceState,
-    source: CatalogueSource?,
+    searchQuery: String?,
+    onSearchQueryChange: (String?) -> Unit,
+    source: Source?,
     displayMode: LibraryDisplayMode,
     onDisplayModeChange: (LibraryDisplayMode) -> Unit,
     navigateUp: () -> Unit,
@@ -44,8 +44,8 @@ fun BrowseSourceToolbar(
     SearchToolbar(
         navigateUp = navigateUp,
         titleContent = { AppBarTitle(title) },
-        searchQuery = state.searchQuery,
-        onChangeSearchQuery = { state.searchQuery = it },
+        searchQuery = searchQuery,
+        onChangeSearchQuery = onSearchQueryChange,
         onSearch = onSearch,
         onClickCloseSearch = navigateUp,
         actions = {

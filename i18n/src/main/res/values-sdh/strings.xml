@@ -30,7 +30,6 @@
     <string name="categories">کاتیگۆرییەکان</string>
     <string name="action_settings">سازکارییەکان</string>
     <string name="action_menu">لیست</string>
-    <string name="action_filter_downloaded">داونلۆد کراو</string>
     <string name="action_filter_bookmarked">نیشانکراو</string>
     <string name="action_filter_tracked">بەدواداچوو</string>
     <string name="action_sort_alpha">بە شێوازی ئەلف و بێ</string>
@@ -74,7 +73,6 @@
     <string name="action_open_in_web_view">WebView کردنەوە لە</string>
     <string name="action_migrate">گواستنەوە</string>
     <string name="action_display_mode">باری پیشاندان</string>
-    <string name="action_display_unread_badge">چاپتەری نەبینراو</string>
     <string name="action_unpin">لابردنی جێگیری</string>
     <string name="action_cancel">هەڵوەشاندنەوە</string>
     <string name="action_cancel_all">هەڵوەشاندنەوەی هەموو</string>
@@ -261,7 +259,6 @@
     <string name="action_sort_last_manga_update">کۆتانوێکردنەوەی مانگا</string>
     <string name="action_sort_unread_count">ژمارەی نەخوێندراوە</string>
     <string name="delete_category">ڕەشکردنەوەی بەش</string>
-    <string name="action_filter_started">دەستپێکراو</string>
     <string name="action_remove_everything">لادانی هەمووشتێك</string>
     <string name="action_search_hint">گەڕان…</string>
     <string name="delete_category_confirmation">\?ڕەشبکەیتەوە \"%s\"ئایا ئەتەوێ کە بەشی</string>

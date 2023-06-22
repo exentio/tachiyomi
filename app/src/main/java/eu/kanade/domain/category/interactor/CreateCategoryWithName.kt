@@ -1,12 +1,11 @@
 package eu.kanade.domain.category.interactor
 
-import eu.kanade.domain.category.model.Category
-import eu.kanade.domain.category.model.anyWithName
-import eu.kanade.domain.category.repository.CategoryRepository
 import eu.kanade.domain.library.service.LibraryPreferences
-import eu.kanade.tachiyomi.util.lang.withNonCancellableContext
-import eu.kanade.tachiyomi.util.system.logcat
 import logcat.LogPriority
+import tachiyomi.core.util.lang.withNonCancellableContext
+import tachiyomi.core.util.system.logcat
+import tachiyomi.domain.category.model.Category
+import tachiyomi.domain.category.repository.CategoryRepository
 
 class CreateCategoryWithName(
     private val categoryRepository: CategoryRepository,
@@ -23,10 +22,6 @@ class CreateCategoryWithName(
 
     suspend fun await(name: String): Result = withNonCancellableContext {
         val categories = categoryRepository.getAll()
-        if (categories.anyWithName(name)) {
-            return@withNonCancellableContext Result.NameAlreadyExistsError
-        }
-
         val nextOrder = categories.maxOfOrNull { it.order }?.plus(1) ?: 0
         val newCategory = Category(
             id = 0,
@@ -46,7 +41,6 @@ class CreateCategoryWithName(
 
     sealed class Result {
         object Success : Result()
-        object NameAlreadyExistsError : Result()
         data class InternalError(val error: Throwable) : Result()
     }
 }

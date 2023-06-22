@@ -4,19 +4,18 @@ import android.content.Context
 import androidx.core.net.toUri
 import com.hippo.unifile.UniFile
 import eu.kanade.domain.download.service.DownloadPreferences
-import eu.kanade.domain.manga.model.Manga
 import eu.kanade.tachiyomi.R
-import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.util.storage.DiskUtil
-import eu.kanade.tachiyomi.util.system.logcat
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import logcat.LogPriority
+import tachiyomi.core.util.system.logcat
+import tachiyomi.domain.chapter.model.Chapter
+import tachiyomi.domain.manga.model.Manga
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import eu.kanade.domain.chapter.model.Chapter as DomainChapter
 
 /**
  * This class is used to provide the directories where the downloads should be saved.
@@ -105,9 +104,9 @@ class DownloadProvider(
      * @param manga the manga of the chapter.
      * @param source the source of the chapter.
      */
-    fun findChapterDirs(chapters: List<Chapter>, manga: Manga, source: Source): List<UniFile> {
-        val mangaDir = findMangaDir(manga.title, source) ?: return emptyList()
-        return chapters.mapNotNull { chapter ->
+    fun findChapterDirs(chapters: List<Chapter>, manga: Manga, source: Source): Pair<UniFile?, List<UniFile>> {
+        val mangaDir = findMangaDir(manga.title, source) ?: return null to emptyList()
+        return mangaDir to chapters.mapNotNull { chapter ->
             getValidChapterDirNames(chapter.name, chapter.scanlator).asSequence()
                 .mapNotNull { mangaDir.findFile(it) }
                 .firstOrNull()
@@ -147,7 +146,7 @@ class DownloadProvider(
         )
     }
 
-    fun isChapterDirNameChanged(oldChapter: DomainChapter, newChapter: DomainChapter): Boolean {
+    fun isChapterDirNameChanged(oldChapter: Chapter, newChapter: Chapter): Boolean {
         return oldChapter.name != newChapter.name ||
             oldChapter.scanlator?.takeIf { it.isNotBlank() } != newChapter.scanlator?.takeIf { it.isNotBlank() }
     }
